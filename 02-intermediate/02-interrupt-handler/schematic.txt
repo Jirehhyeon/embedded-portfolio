@@ -1,0 +1,249 @@
+Advanced Interrupt Handler Circuit Schematic
+===========================================
+
+Complete multi-interrupt system with rotary encoder, ultrasonic sensor, and control outputs:
+
+ATmega328P Main Controller
+                    VCC (+5V)
+                     │
+     ATmega328P      │
+     ┌─────────┐     │
+     │         │     │
+     │ Rotary Encoder Interface
+     │   PD2   ├──────────────┐
+     │ (INT0)  │              │    ┌─────────┐
+     │         │              ├────┤ A       │
+     │   PD3   ├──────────────┤    │ Encoder │ RotaryEncoder
+     │ (INT1)  │              ├────┤ B       │ (EC11 or similar)
+     │         │              │    │ SW      ├──── GND (Emergency)
+     │         │              │    └─────────┘
+     │         │              │         │
+     │         │             VCC       GND
+     │         │              │
+     │ Ultrasonic Sensor HC-SR04
+     │   PB1   ├─────────────────────► Trigger
+     │(Trigger)│
+     │   PD4   ├─────────────────────► Echo (PCINT20)
+     │ (Echo)  │
+     │         │
+     │ Temperature Sensor
+     │   PC0   ├──────────────┬───────── LM35 Vout
+     │ (ADC0)  │              │
+     │         │             ┌┴┐ LM35
+     │         │             │ │
+     │         │             └┬┘
+     │         │          VCC─┤ ├─GND
+     │         │              │
+     │ Status LEDs            │
+     │   PB0   ├──[220Ω]──┤▶├─┴─ GND (Status - Green)
+     │(Status) │
+     │   PB2   ├──[220Ω]──┤▶├──── GND (Error - Red)
+     │ (Error) │
+     │   PB3   ├──[220Ω]──┤▶├──── GND (Warning - Yellow)
+     │(Warning)│
+     │   PB4   ├──[220Ω]──┤▶├──── GND (Activity - Blue)
+     │(Activity)
+     │         │
+     │ PWM Control Outputs    │
+     │   PD6   ├──────────────┼────────► Buzzer/Speaker
+     │ (OC0A)  │              │         (Piezo Buzzer)
+     │ Buzzer  │              │
+     │         │              │
+     │   PD5   ├──[220Ω]──┤▶├─┴─ GND (PWM LED - White)
+     │ (OC0B)  │
+     │ PWM LED │
+     └─────────┘
+
+HC-SR04 Ultrasonic Sensor Detail:
+=================================
+
+HC-SR04 Pinout:
+┌─────────┐
+│ VCC     ├──── +5V
+│ Trig    ├──── PB1 (Trigger output from MCU)
+│ Echo    ├──── PD4 (Echo input to MCU, PCINT20)
+│ GND     ├──── GND
+└─────────┘
+
+Timing Diagram:
+Trigger:  ┌──┐
+         ─┘  └────────────────────
+           10μs
+
+Echo:           ┌─────────────┐
+         ───────┘             └─────
+                 │◄─ Distance ─►│
+                 Pulse width proportional to distance
+
+Distance Calculation:
+Distance (cm) = Echo_pulse_width (μs) / 58
+
+Rotary Encoder Detail:
+=====================
+
+EC11 Type Rotary Encoder:
+           ┌─────────┐
+         A ├───────────── PD2 (INT0)
+         B ├───────────── PD3 (INT1)  
+        SW ├───────────── GND (Emergency stop)
+       GND ├─────────────── GND
+       VCC ├─────────────── +5V (if needed)
+           └─────────┘
+
+Quadrature Encoding:
+         ┌─┐   ┌─┐   ┌─┐
+    A: ──┘ └───┘ └───┘ └──  (Clockwise)
+       ┌─┐   ┌─┐   ┌─┐
+    B: ┘ └───┘ └───┘ └────
+
+    Forward:  A leads B (A rises before B)
+    Reverse:  B leads A (B rises before A)
+
+LM35 Temperature Sensor:
+========================
+
+LM35 Connection:
+           ┌─────────┐
+    VCC ───┤1      3├─── GND
+           │  LM35  │
+    Vout ──┤2      ├
+           └─────────┘
+              │
+              └──────── PC0 (ADC0)
+
+Temperature Calculation:
+- Output: 10mV/°C
+- 0°C = 0V, 100°C = 1V
+- ADC Resolution: 5V/1024 = 4.88mV per bit
+- Temperature = ADC_value × 500 / 1024 (°C)
+
+Power Supply and Decoupling:
+===========================
+
+                VCC (+5V)
+                 │
+                ┌┴┐
+                │ │ Power LED indicator
+                └┬┘ (Optional)
+                 │
+    ┌────────────┼────────────┐
+    │            │            │
+   ┌┴┐          ┌┴┐          ┌┴┐
+   │ │ 100μF    │ │ 10μF     │ │ 100nF
+   └┬┘          └┬┘          └┬┘
+    │            │            │
+   GND          GND          GND
+  Bulk         Medium       High Freq
+Decoupling    Decoupling    Decoupling
+
+Pin Change Interrupt Configuration:
+==================================
+
+PCINT2 Group (PORTD):
+┌──────────┬─────────┬─────────────┬──────────────┐
+│ Pin Name │ MCU Pin │ PCINT Name  │ Function     │
+├──────────┼─────────┼─────────────┼──────────────┤
+│ PD4      │ Pin 6   │ PCINT20     │ Echo Input   │
+│ PD2      │ Pin 4   │ PCINT18     │ Also INT0    │
+│ PD3      │ Pin 5   │ PCINT19     │ Also INT1    │
+└──────────┴─────────┴─────────────┴──────────────┘
+
+Register Settings:
+PCICR |= (1 << PCIE2);     // Enable PCINT2 group
+PCMSK2 |= (1 << PCINT20);  // Enable PD4 only
+
+Interrupt Priority Analysis:
+===========================
+
+Hardware Priority (Vector Address Order):
+1. INT0 (0x002) - Encoder A, PRIORITY_NORMAL
+2. INT1 (0x004) - Emergency Stop, PRIORITY_CRITICAL  
+3. PCINT2 (0x00A) - Ultrasonic Echo, PRIORITY_HIGH
+4. TIMER0_COMPA (0x016) - System Tick, PRIORITY_HIGH
+5. TIMER1_COMPA (0x01A) - Control Loop, PRIORITY_HIGH
+6. ADC (0x02A) - Temperature, PRIORITY_NORMAL
+
+Software Priority Management:
+- Emergency Stop: Immediate action, disable other outputs
+- Real-time Control: 1ms precision required
+- Sensor Data: Important but can tolerate some delay
+- Background Tasks: Lowest priority
+
+Critical Timing Requirements:
+============================
+
+Real-time Constraints:
+┌─────────────────┬─────────────┬─────────────────┐
+│ Function        │ Max Latency │ Update Rate     │
+├─────────────────┼─────────────┼─────────────────┤
+│ Emergency Stop  │ <1ms        │ Immediate       │
+│ PID Control     │ <1ms        │ 1000 Hz         │
+│ Encoder Reading │ <100μs      │ Up to 500 Hz    │
+│ Ultrasonic Meas │ <50ms       │ 20 Hz           │
+│ Temperature     │ <1s         │ 10 Hz           │
+│ Status Display  │ <100ms      │ Variable        │
+└─────────────────┴─────────────┴─────────────────┘
+
+Interrupt Load Calculation:
+==========================
+
+Estimated ISR Execution Times:
+- INT0 (Encoder): ~20 cycles (1.25μs)
+- INT1 (Emergency): ~50 cycles (3.125μs)  
+- PCINT (Echo): ~30 cycles (1.875μs)
+- TIMER0: ~40 cycles (2.5μs)
+- TIMER1 (PID): ~200 cycles (12.5μs)
+- ADC: ~25 cycles (1.56μs)
+
+Maximum Interrupt Load:
+- Timer interrupts: 2000 Hz × 15μs = 3% CPU
+- Encoder (max): 1000 Hz × 1.25μs = 0.125% CPU  
+- Ultrasonic: 40 Hz × 1.875μs = 0.0075% CPU
+- ADC: 10 Hz × 1.56μs = 0.000156% CPU
+- Emergency: Rare, but critical
+
+Total: ~3.2% CPU for interrupts
+Remaining: ~96.8% for main loop and other tasks
+
+Testing and Debugging Connections:
+==================================
+
+Oscilloscope Test Points:
+1. TP1: PB4 (Activity LED) - System heartbeat
+2. TP2: PD6 (Buzzer) - PWM frequency analysis
+3. TP3: PD5 (PWM LED) - PID controller output
+4. TP4: PD4 (Echo) - Ultrasonic timing measurement
+
+Logic Analyzer Connections:
+Ch0: PD2 (INT0) - Encoder A
+Ch1: PD3 (INT1) - Encoder B / Emergency
+Ch2: PD4 (PCINT20) - Echo signal
+Ch3: PB1 (Trigger) - Ultrasonic trigger
+Ch4: PB0 (Status LED)
+Ch5: PB2 (Error LED)  
+Ch6: PD6 (Buzzer PWM)
+Ch7: PD5 (LED PWM)
+
+Serial Debug Interface (Optional):
+For advanced debugging, UART can be added:
+- TX: PD1 (Arduino Pin 1)
+- RX: PD0 (Arduino Pin 0)
+- Baud: 9600-115200
+- Format: 8N1
+
+Power Consumption Analysis:
+==========================
+
+Typical Current Draw:
+- ATmega328P (active): ~20mA @ 16MHz
+- LEDs (4 × 20mA max): ~80mA
+- HC-SR04: ~15mA active, ~2mA standby
+- LM35: ~60μA
+- Buzzer (active): ~30mA
+- Rotary encoder: ~0.1mA
+
+Total Maximum: ~145mA
+Typical Average: ~40mA (with duty cycling)
+Standby (LEDs off): ~37mA
+
+Recommended Power Supply: 5V, 500mA minimum

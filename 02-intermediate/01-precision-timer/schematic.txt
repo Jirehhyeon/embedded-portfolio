@@ -1,0 +1,185 @@
+Precision Timer Circuit Schematic
+=================================
+
+Complete multi-timer system with 7-segment display and frequency indicators:
+
+                    VCC (+5V)
+                     │
+     ATmega328P      │
+     ┌──────────┐    │
+     │          │    │
+     │ XTAL1    ├────┤    ┌────┐ 16MHz
+     │ XTAL2    ├────┼────┤XTAL├──┐
+     │          │    │    └────┘  │
+     │          │   ┌┴┐           │
+     │          │   │ │ 22pF      │
+     │          │   └┬┘          ┌┴┐
+     │          │    │           │ │ 22pF
+     │          │   GND          └┬┘
+     │          │                 │
+     │          │                GND
+     │          │
+     │ LED Frequency Indicators   │
+     │    PB0   ├──[220Ω]──┤▶├─── GND  (1Hz LED - Red)
+     │  (1Hz)   │
+     │    PB1   ├──[220Ω]──┤▶├─── GND  (10Hz LED - Yellow)
+     │  (10Hz)  │
+     │    PB2   ├──[220Ω]──┤▶├─── GND  (100Hz LED - Green)
+     │  (100Hz) │
+     │    PB3   ├──[220Ω]──┤▶├─── GND  (1kHz LED - Blue)
+     │  (1kHz)  │
+     │          │
+     │ 7-Segment Display Control  │
+     │    PD4   ├─────────────────┼──► Segment A
+     │    PD5   ├─────────────────┼──► Segment B
+     │    PD6   ├─────────────────┼──► Segment C
+     │    PD7   ├─────────────────┼──► Segment D
+     │          │
+     │ Digit Selection (Common Cathode)
+     │    PC0   ├──[100Ω]─────────┼──► Digit 1 (Hours tens)
+     │    PC1   ├──[100Ω]─────────┼──► Digit 2 (Hours units)
+     │    PC2   ├──[100Ω]─────────┼──► Digit 3 (Minutes tens)
+     │    PC3   ├──[100Ω]─────────┼──► Digit 4 (Minutes units)
+     │          │
+     │ Control Buttons            │
+     │    PD2   ├─────────────────┼──┐
+     │  (INT0)  │                 │  │
+     │    PD3   ├─────────────────┼──┤ VCC
+     │  (INT1)  │                 │  │
+     │    PC4   ├─────────────────┼──┤ (Pull-up)
+     │ (START)  │                 │  │
+     │    PC5   ├─────────────────┼──┘
+     │ (RESET)  │                 │
+     │          │               ──┴──
+     └──────────┘               ──── SW (Mode)
+                                  │
+                                 GND
+
+7-Segment Display Connection (Common Cathode):
+=============================================
+
+Each digit of 7-segment display:
+
+         A
+       ┌───┐
+    F  │   │  B
+       ├─G─┤
+    E  │   │  C
+       └───┘
+         D
+
+Pin Connections:
+┌─────────┬─────────────┬────────────────┐
+│ MCU Pin │ Segment     │ Function       │
+├─────────┼─────────────┼────────────────┤
+│ PD4     │ A           │ Top            │
+│ PD5     │ B           │ Top Right      │
+│ PD6     │ C           │ Bottom Right   │
+│ PD7     │ D           │ Bottom         │
+│ (VCC)   │ E           │ Bottom Left    │
+│ (VCC)   │ F           │ Top Left       │
+│ (GND)   │ G           │ Middle         │
+│ (VCC)   │ DP          │ Decimal Point  │
+└─────────┴─────────────┴────────────────┘
+
+Note: This simplified design uses only 4 segments (A,B,C,D) for basic digit display.
+For full 7-segment display, additional pins and multiplexing logic needed.
+
+Alternative Full 7-Segment Design:
+=================================
+
+Using 74HC595 Shift Register for segment control:
+
+ATmega328P                    74HC595
+┌─────────┐                  ┌─────────┐
+│         │                  │         │
+│   PB2   ├─────────────────►│ SER     │
+│  (Data) │                  │         │
+│   PB3   ├─────────────────►│ SRCLK   │
+│ (Clock) │                  │         │
+│   PB4   ├─────────────────►│ RCLK    │
+│ (Latch) │                  │         │
+│         │                  │ QA-QH   ├──► To 7-seg segments
+│         │                  │         │
+└─────────┘                  └─────────┘
+
+Crystal Oscillator Circuit Detail:
+=================================
+
+                 XTAL1              XTAL2
+MCU ──────────────┤                  ├─────────── MCU
+                  │    ┌────────┐    │
+                  └────┤16MHz   ├────┘
+                       │Crystal │
+                       └────────┘
+                  │                  │
+                 ┌┴┐                ┌┴┐
+                 │ │ 22pF           │ │ 22pF
+                 └┬┘                └┬┘
+                  │                  │
+                 GND                GND
+
+Button Debouncing Circuit:
+=========================
+
+                     VCC
+                      │
+                     ┌┴┐
+                     │ │ 10kΩ
+                     └┬┘
+        MCU Pin ──────┼──────┬───── 100nF ──── GND
+                      │      │
+                      │    ──┴──
+                      │    ──── Button
+                      │      │
+                      └──────┴───── GND
+
+Timer Frequency Calculations:
+============================
+
+Timer0 (System Clock - 1ms):
+  Prescaler = 64
+  OCR0A = (16MHz / 64 / 1000Hz) - 1 = 249
+  Actual frequency = 16MHz / 64 / 250 = 1000.0 Hz
+
+Timer1 (Display Multiplex - 2ms):
+  Prescaler = 64
+  OCR1A = (16MHz / 64 / 500Hz) - 1 = 499
+  Actual frequency = 16MHz / 64 / 500 = 500.0 Hz
+
+Timer2 (High-Speed - 100μs):
+  Prescaler = 64
+  OCR2A = (16MHz / 64 / 10000Hz) - 1 = 24
+  Actual frequency = 16MHz / 64 / 25 = 10000.0 Hz
+
+LED Toggle Frequencies:
+======================
+Based on Timer2 interrupts every 100μs:
+
+1Hz LED:   Toggle every 50000 × 100μs = 5.0s → 0.1Hz visible
+10Hz LED:  Toggle every 5000 × 100μs = 0.5s → 1Hz visible
+100Hz LED: Toggle every 500 × 100μs = 50ms → 10Hz visible
+1kHz LED:  Toggle every 50 × 100μs = 5ms → 100Hz visible
+
+Power Supply Requirements:
+=========================
+- VCC: 5V ±5%
+- Current consumption:
+  * MCU: ~20mA active, ~1μA sleep
+  * 4 LEDs: ~60mA total
+  * 7-segment: ~100mA (4 digits)
+  * Total: ~180mA typical
+
+Testing Equipment:
+==================
+- Oscilloscope: For frequency verification
+- Logic analyzer: For digital signal timing
+- Frequency counter: For precise measurement
+- Multimeter: For voltage/current checks
+
+Expected Performance:
+====================
+- Timer accuracy: ±0.005% with 16MHz crystal
+- Button response: <50ms with debouncing
+- Display refresh: 500Hz (flicker-free)
+- Temperature drift: <50ppm over 0-70°C
