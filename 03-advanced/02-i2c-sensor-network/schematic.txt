@@ -1,0 +1,492 @@
+Advanced I2C Sensor Network Circuit Schematic
+=============================================
+
+Multi-sensor I2C network with sensor fusion, data logging, and real-time monitoring:
+
+ATmega328P Main Controller and I2C Bus
+                    VCC (+5V/+3.3V)
+                     │
+                     │ Pull-up Resistors
+                ┌────┼────┐
+               ┌┴┐  ┌┴┐    │
+               │ │  │ │    │ 4.7kΩ each
+               └┬┘  └┬┘    │
+                │    │     │
+     ATmega328P │    │     │
+     ┌─────────┐│    │     │
+     │         ││    │     │
+     │ I2C Master Bus      │
+     │   PC5   ├┴────┼─────┼──────── SCL (Serial Clock Line)
+     │  (SCL)  │     │     │
+     │   PC4   ├─────┼─────┼──────── SDA (Serial Data Line)
+     │  (SDA)  │     │     │
+     │         │     │     │
+     │ Status LEDs    │     │
+     │   PB0   ├──[220Ω]──┤▶├─ GND (Network Status)
+     │(NET_LED)│           │
+     │   PB1   ├──[220Ω]──┤▶├─ GND (Error LED)
+     │(ERR_LED)│           │
+     │   PB2   ├──[220Ω]──┤▶├─ GND (Data Activity)
+     │(DAT_LED)│           │
+     │   PB3   ├──[220Ω]──┤▶├─ GND (Fusion Active)
+     │(FUS_LED)│           │
+     │         │           │
+     │ Interrupt Inputs    │
+     │   PD2   ├─────────── MPU6050 INT
+     │  (INT0) │           │
+     │   PD3   ├─────────── DS3231 SQW
+     │  (INT1) │           │
+     │   PD4   ├─────────── PCF8574 INT
+     │ (PCINT) │           │
+     └─────────┘           │
+                           │
+        I2C Device Network │
+        ==================│===========================
+                           │
+    ┌──────────────────────┼──────────────────────────┐
+    │                      │                          │
+    │ BMP280 Pressure/Temperature Sensor              │
+    │ ┌─────────┐          │                          │
+    │ │ VCC     ├──────────┼──── +3.3V               │
+    │ │ GND     ├──────────┼──── GND                 │
+    │ │ SCL     ├──────────┼──── SCL Bus             │
+    │ │ SDA     ├──────────┼──── SDA Bus             │
+    │ │ CSB     ├──────────┼──── +3.3V (I2C mode)   │
+    │ │ SDO     ├──────────┼──── GND (Addr: 0x76)   │
+    │ └─────────┘          │                          │
+    │ I2C Address: 0x76    │                          │
+    │ Features:            │                          │
+    │  - Pressure: 300-1100 hPa                      │
+    │  - Temperature: -40 to +85°C                   │
+    │  - Altitude calculation                         │
+    │  - 24-bit ADC resolution                        │
+    └─────────────────────────────────────────────────┘
+
+    ┌──────────────────────┼──────────────────────────┐
+    │                      │                          │
+    │ MPU6050 6-Axis Inertial Measurement Unit        │
+    │ ┌─────────┐          │                          │
+    │ │ VCC     ├──────────┼──── +3.3V               │
+    │ │ GND     ├──────────┼──── GND                 │
+    │ │ SCL     ├──────────┼──── SCL Bus             │
+    │ │ SDA     ├──────────┼──── SDA Bus             │
+    │ │ AD0     ├──────────┼──── GND (Addr: 0x68)   │
+    │ │ INT     ├──────────┼──── PD2 (Interrupt)    │
+    │ │ FSYNC   ├──────────┼──── GND (Not used)     │
+    │ │ CLKIN   ├──────────┼──── (Not connected)    │
+    │ └─────────┘          │                          │
+    │ I2C Address: 0x68    │                          │
+    │ Features:            │                          │
+    │  - 3-axis accelerometer: ±2/4/8/16g            │
+    │  - 3-axis gyroscope: ±250/500/1000/2000°/s     │
+    │  - Temperature sensor: ±1°C                    │
+    │  - 16-bit ADC resolution                        │
+    │  - Programmable interrupts                      │
+    └─────────────────────────────────────────────────┘
+
+    ┌──────────────────────┼──────────────────────────┐
+    │                      │                          │
+    │ DS3231 Precision Real-Time Clock                │
+    │ ┌─────────┐          │                          │
+    │ │ VCC     ├──────────┼──── +3.3V               │
+    │ │ GND     ├──────────┼──── GND                 │
+    │ │ SCL     ├──────────┼──── SCL Bus             │
+    │ │ SDA     ├──────────┼──── SDA Bus             │
+    │ │ SQW/INT ├──────────┼──── PD3 (1Hz Square Wave)│
+    │ │ 32KHZ   ├──────────┼──── (Not connected)     │
+    │ │ RST     ├──────────┼──── (Not connected)     │
+    │ │ VBAT    ├──[3V Battery]── Backup Power       │
+    │ └─────────┘          │                          │
+    │ I2C Address: 0x68    │                          │
+    │ Features:            │                          │
+    │  - Temperature compensated crystal oscillator   │
+    │  - ±2ppm accuracy from 0°C to +40°C            │
+    │  - Battery backup for timekeeping               │
+    │  - Two programmable alarms                      │
+    │  - Temperature sensor: 0.25°C resolution        │
+    └─────────────────────────────────────────────────┘
+
+    ┌──────────────────────┼──────────────────────────┐
+    │                      │                          │
+    │ 24LC256 Serial EEPROM (32KB)                    │
+    │ ┌─────────┐          │                          │
+    │ │ VCC     ├──────────┼──── +3.3V               │
+    │ │ GND     ├──────────┼──── GND                 │
+    │ │ SCL     ├──────────┼──── SCL Bus             │
+    │ │ SDA     ├──────────┼──── SDA Bus             │
+    │ │ WP      ├──────────┼──── GND (Write Enable)  │
+    │ │ A0      ├──────────┼──── GND                 │
+    │ │ A1      ├──────────┼──── GND                 │
+    │ │ A2      ├──────────┼──── GND                 │
+    │ └─────────┘          │                          │
+    │ I2C Address: 0x50    │                          │
+    │ Features:            │                          │
+    │  - 32,768 x 8-bit organization                 │
+    │  - 64-byte page write buffer                    │
+    │  - 1,000,000 write/erase cycles                │
+    │  - 200-year data retention                      │
+    │  - Write protection pin                         │
+    └─────────────────────────────────────────────────┘
+
+    ┌──────────────────────┼──────────────────────────┐
+    │                      │                          │
+    │ PCF8574 I/O Expander (LED Control)              │
+    │ ┌─────────┐          │                          │
+    │ │ VCC     ├──────────┼──── +5V                 │
+    │ │ GND     ├──────────┼──── GND                 │
+    │ │ SCL     ├──────────┼──── SCL Bus             │
+    │ │ SDA     ├──────────┼──── SDA Bus             │
+    │ │ A0      ├──────────┼──── GND                 │
+    │ │ A1      ├──────────┼──── GND                 │
+    │ │ A2      ├──────────┼──── GND                 │
+    │ │ INT     ├──────────┼──── PD4 (Interrupt)    │
+    │ │         │          │                          │
+    │ │ P0      ├──[220Ω]──┤▶├─ GND (Sensor 1 LED)  │
+    │ │ P1      ├──[220Ω]──┤▶├─ GND (Sensor 2 LED)  │
+    │ │ P2      ├──[220Ω]──┤▶├─ GND (Sensor 3 LED)  │
+    │ │ P3      ├──[220Ω]──┤▶├─ GND (Fusion LED)    │
+    │ │ P4      ├──[220Ω]──┤▶├─ GND (Health LED)    │
+    │ │ P5      ├──[220Ω]──┤▶├─ GND (Logging LED)   │
+    │ │ P6      ├──[220Ω]──┤▶├─ GND (Error LED)     │
+    │ │ P7      ├──[220Ω]──┤▶├─ GND (Warning LED)   │
+    │ └─────────┘          │                          │
+    │ I2C Address: 0x20    │                          │
+    │ Features:            │                          │
+    │  - 8-bit quasi-bidirectional I/O               │
+    │  - Active LOW outputs for LED driving           │
+    │  - Interrupt on input change                    │
+    │  - 25mA output drive capability                 │
+    └─────────────────────────────────────────────────┘
+
+    ┌──────────────────────┼──────────────────────────┐
+    │                      │                          │
+    │ SSD1306 OLED Display (128x64)                   │
+    │ ┌─────────┐          │                          │
+    │ │ VCC     ├──────────┼──── +3.3V               │
+    │ │ GND     ├──────────┼──── GND                 │
+    │ │ SCL     ├──────────┼──── SCL Bus             │
+    │ │ SDA     ├──────────┼──── SDA Bus             │
+    │ │ RES     ├──────────┼──── +3.3V (Reset High) │
+    │ │ DC      ├──────────┼──── GND (I2C Mode)     │
+    │ │ CS      ├──────────┼──── GND (I2C Mode)     │
+    │ └─────────┘          │                          │
+    │ I2C Address: 0x3C    │                          │
+    │ Features:            │                          │
+    │  - 128x64 dot matrix OLED                      │
+    │  - Built-in controller (SSD1306)               │
+    │  - 3.3V operation                              │
+    │  - High contrast ratio                          │
+    │  - Wide viewing angle                           │
+    └─────────────────────────────────────────────────┘
+
+    ┌──────────────────────┼──────────────────────────┐
+    │                      │                          │
+    │ LCD 16x2 with I2C Backpack                      │
+    │ ┌─────────┐          │                          │
+    │ │ VCC     ├──────────┼──── +5V                 │
+    │ │ GND     ├──────────┼──── GND                 │
+    │ │ SCL     ├──────────┼──── SCL Bus             │
+    │ │ SDA     ├──────────┼──── SDA Bus             │
+    │ │ Backlight+─────────┼──── Backpack Control    │
+    │ │ Contrast──────────┼──── 10kΩ Potentiometer  │
+    │ └─────────┘          │                          │
+    │ I2C Address: 0x27    │                          │
+    │ Features:            │                          │
+    │  - 16 characters x 2 lines                     │
+    │  - HD44780 compatible controller                │
+    │  - Backlight control                            │
+    │  - Contrast adjustment                          │
+    │  - I2C backpack (PCF8574/PCF8574A)            │
+    └─────────────────────────────────────────────────┘
+
+Power Supply Distribution and Decoupling:
+========================================
+
+                    +5V Input (USB or External)
+                     │
+        ┌────────────┼────────────┐
+        │            │            │
+   ATmega328P    Status LEDs   LCD Display
+        │            │            │
+        │    ┌───────┴──────┐     │
+        │    │ 3.3V Reg     │     │
+        │    │ (AMS1117)    │     │
+        │    └───────┬──────┘     │
+        │            │            │
+     BMP280      MPU6050      OLED Display
+        │            │            │
+     DS3231      EEPROM       PCF8574
+        │            │            │
+        └────────────┼────────────┘
+                     │
+                   GND Common
+
+Decoupling Capacitor Network:
+                VCC Rails (+5V and +3.3V)
+                 │
+    ┌────────────┼────────────┐
+    │            │            │
+   ┌┴┐          ┌┴┐          ┌┴┐
+   │ │ 100μF    │ │ 10μF     │ │ 100nF
+   └┬┘          └┬┘          └┬┘
+    │            │            │
+   GND          GND          GND
+  Bulk      Medium Freq   High Freq
+Decoupling    Decoupling   Decoupling
+
+I2C Signal Integrity and Timing:
+================================
+
+I2C Bus Characteristics @ 100kHz:
+┌─ START ─┬─ Address (7-bit) ─┬─R/W─┬─ACK─┬─ Data (8-bit) ─┬─ACK─┬─ STOP ─┐
+│   SDA   │   MSB → LSB       │     │     │   MSB → LSB    │     │   SDA   │
+│   ↓     │                   │     │ ↓   │                │ ↓   │   ↑     │
+└─────────┴───────────────────┴─────┴─────┴────────────────┴─────┴─────────┘
+     │                               │                       │
+   START                           ACK                     STOP
+ Condition                      (SDA Low)                Condition
+
+Timing Requirements (100kHz Standard Mode):
+┌─────────────────┬─────────────┬─────────────────┐
+│ Parameter       │ Min         │ Max             │
+├─────────────────┼─────────────┼─────────────────┤
+│ Clock Frequency │ 0 Hz        │ 100 kHz         │
+│ Clock High Time │ 4.0 μs      │ -               │
+│ Clock Low Time  │ 4.7 μs      │ -               │
+│ Setup Time      │ 250 ns      │ -               │
+│ Hold Time       │ 0 ns        │ 3.45 μs         │
+│ Rise Time       │ -           │ 1000 ns         │
+│ Fall Time       │ -           │ 300 ns          │
+└─────────────────┴─────────────┴─────────────────┘
+
+Pull-up Resistor Calculation:
+R_pullup = (VCC - VOL_max) / IOL_max
+For 100kHz: R = (5V - 0.4V) / 3mA = 1.53kΩ minimum
+Recommended: 4.7kΩ (provides good noise immunity)
+
+Address Map and Device Identification:
+=====================================
+
+┌──────────────┬─────────┬─────────────┬──────────────────┐
+│ Device       │ Address │ Alt Address │ Identification   │
+├──────────────┼─────────┼─────────────┼──────────────────┤
+│ BMP280       │ 0x76    │ 0x77*       │ Chip ID: 0x58    │
+│ MPU6050      │ 0x68    │ 0x69*       │ WHO_AM_I: 0x68   │
+│ DS3231       │ 0x68    │ -           │ Different regs   │
+│ 24LC256      │ 0x50    │ 0x50-0x57*  │ EEPROM pattern   │
+│ PCF8574      │ 0x20    │ 0x20-0x27*  │ I/O read/write   │
+│ SSD1306      │ 0x3C    │ 0x3D*       │ Display test     │
+│ LCD Backpack │ 0x27    │ 0x20-0x27*  │ LCD response     │
+└──────────────┴─────────┴─────────────┴──────────────────┘
+
+*Address configurable via hardware pins
+
+Address Conflict Resolution:
+- MPU6050 and DS3231 both use 0x68 but access different register maps
+- EEPROM and PCF8574 can be configured to avoid conflicts
+- Always verify device identity through chip ID registers
+
+Sensor Fusion Data Flow:
+=======================
+
+    Raw Sensor Data          Kalman Filters         Fused Output
+    ┌─────────────┐          ┌─────────────┐       ┌─────────────┐
+    │ BMP280      │──temp───→│ Temp Filter │──────→│ Fused Temp  │
+    │ - Temp      │          │ Q=0.01      │       │ ±0.5°C      │
+    │ - Pressure  │──press──→│ R=0.1       │       │             │
+    │ - Altitude  │          └─────────────┘       │ Fused Alt   │
+    └─────────────┘                                │ ±1m         │
+                              ┌─────────────┐       │             │
+    ┌─────────────┐          │ Alt Filter  │──────→│ Orientation │
+    │ MPU6050     │──accel──→│ Q=0.1       │       │ ±2°         │
+    │ - Accel XYZ │          │ R=1.0       │       │             │
+    │ - Gyro XYZ  │──gyro───→└─────────────┘       │ Lin Accel   │
+    │ - Temp      │                                │ ±0.1m/s²    │
+    └─────────────┘          ┌─────────────┐       └─────────────┘
+                              │ Orientation │
+    ┌─────────────┐          │ Filters (3) │
+    │ DS3231      │──temp───→│ Roll/Pitch/ │
+    │ - Time      │          │ Yaw         │
+    │ - Temp      │          └─────────────┘
+    └─────────────┘
+
+Data Logging Architecture:
+=========================
+
+    Sensor Data → Processing → EEPROM Storage
+    ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
+    │ Real-time   │ Fusion   │ Log Entry   │ 60sec    │ 24LC256     │
+    │ Sensor      │ ──────→  │ Structure   │ ──────→  │ EEPROM      │
+    │ Readings    │ Process  │ 42 bytes    │ Timer    │ 32KB        │
+    └─────────────┘          └─────────────┘          └─────────────┘
+                                    │                        │
+                                    ▼                        ▼
+                             ┌─────────────┐          ┌─────────────┐
+                             │ Checksum    │          │ Circular    │
+                             │ Validation  │          │ Buffer      │
+                             │ CRC/XOR     │          │ ~780 Entries│
+                             └─────────────┘          └─────────────┘
+
+Log Entry Structure (42 bytes):
+┌────────────┬──────┬─────────────────────────────────────┐
+│ Field      │ Size │ Description                         │
+├────────────┼──────┼─────────────────────────────────────┤
+│ Timestamp  │ 4    │ System uptime in milliseconds       │
+│ Temperature│ 4    │ Fused temperature (IEEE 754 float)  │
+│ Pressure   │ 4    │ Barometric pressure in hPa          │
+│ Altitude   │ 4    │ Calculated altitude in meters       │
+│ Accel[3]   │ 6    │ Raw accelerometer data              │
+│ Gyro[3]    │ 6    │ Raw gyroscope data                  │
+│ Orient[3]  │ 12   │ Fused orientation (roll/pitch/yaw)  │
+│ Status     │ 1    │ Sensor network status bitmap        │
+│ Checksum   │ 1    │ XOR checksum for error detection    │
+└────────────┴──────┴─────────────────────────────────────┘
+
+Network Health Monitoring:
+==========================
+
+Status LED Patterns (via PCF8574):
+┌─────────────┬─────────────┬──────────────────────────┐
+│ Condition   │ LED Pattern │ Description              │
+├─────────────┼─────────────┼──────────────────────────┤
+│ All OK      │ 10101010    │ Heartbeat pattern        │
+│ Sensor Fail │ 11110000    │ Failed sensor indicator  │
+│ Bus Error   │ 11111111    │ I2C communication error  │
+│ Logging     │ 00001111    │ Data logging active      │
+│ Fusion OK   │ 01010101    │ Sensor fusion working    │
+│ Recovery    │ 10011001    │ Network recovery mode    │
+└─────────────┴─────────────┴──────────────────────────┘
+
+Interrupt Configuration:
+========================
+
+External Interrupts:
+┌─────────┬─────────┬─────────────┬──────────────────┐
+│ Pin     │ Vector  │ Source      │ Function         │
+├─────────┼─────────┼─────────────┼──────────────────┤
+│ PD2     │ INT0    │ MPU6050     │ Motion detection │
+│ PD3     │ INT1    │ DS3231      │ 1Hz time sync    │
+│ PD4     │ PCINT20 │ PCF8574     │ I/O change       │
+└─────────┴─────────┴─────────────┴──────────────────┘
+
+Timer Configuration:
+┌─────────┬─────────┬─────────────┬──────────────────┐
+│ Timer   │ Mode    │ Frequency   │ Function         │
+├─────────┼─────────┼─────────────┼──────────────────┤
+│ Timer1  │ CTC     │ 1kHz        │ System tick      │
+└─────────┴─────────┴─────────────┴──────────────────┘
+
+Performance Specifications:
+==========================
+
+System Performance:
+┌─────────────────┬─────────────┬─────────────────┐
+│ Parameter       │ Typical     │ Maximum         │
+├─────────────────┼─────────────┼─────────────────┤
+│ Sensor Update   │ 125 Hz      │ 1000 Hz         │
+│ Fusion Rate     │ 125 Hz      │ 500 Hz          │
+│ I2C Speed       │ 100 kHz     │ 400 kHz         │
+│ Log Interval    │ 60 sec      │ 1 sec           │
+│ CPU Usage       │ 50%         │ 80%             │
+│ RAM Usage       │ 1.2 KB      │ 1.8 KB          │
+│ Flash Usage     │ 28 KB       │ 32 KB           │
+└─────────────────┴─────────────┴─────────────────┘
+
+Measurement Accuracy:
+┌─────────────────┬─────────────┬─────────────────┐
+│ Parameter       │ Individual  │ Fused           │
+├─────────────────┼─────────────┼─────────────────┤
+│ Temperature     │ ±1°C        │ ±0.5°C          │
+│ Pressure        │ ±1 hPa      │ ±0.5 hPa        │
+│ Altitude        │ ±10 m       │ ±1 m            │
+│ Acceleration    │ ±2%         │ ±1%             │
+│ Angular Rate    │ ±3°/s       │ ±1°/s           │
+│ Orientation     │ ±5°         │ ±2°             │
+└─────────────────┴─────────────┴─────────────────┘
+
+Testing and Validation:
+======================
+
+Required Test Equipment:
+- I2C protocol analyzer
+- Digital oscilloscope (4+ channels)
+- Logic analyzer (8+ channels)
+- Calibrated pressure reference
+- Temperature reference probe
+- Power supply with current monitoring
+- Multimeter for continuity testing
+
+Test Points for Debugging:
+TP1: SCL (PC5) - I2C clock signal analysis
+TP2: SDA (PC4) - I2C data signal analysis  
+TP3: PB0 (Status LED) - Network health indicator
+TP4: PD2 (MPU INT) - Motion interrupt signal
+TP5: PD3 (RTC SQW) - 1Hz reference signal
+TP6: 3.3V Rail - Power stability monitoring
+TP7: 5V Rail - Power stability monitoring
+TP8: GND - Ground reference
+
+Common Troubleshooting:
+======================
+
+1. I2C Communication Failures:
+   - Check pull-up resistors (4.7kΩ)
+   - Verify power supply stability
+   - Test bus loading (too many devices)
+   - Check for address conflicts
+
+2. Sensor Reading Errors:
+   - Verify sensor power requirements
+   - Check calibration data validity
+   - Test individual sensor isolation
+   - Monitor for electrical noise
+
+3. Fusion Algorithm Issues:
+   - Verify sensor synchronization
+   - Check Kalman filter parameters
+   - Test with known reference values
+   - Monitor filter convergence time
+
+4. Data Logging Problems:
+   - Test EEPROM write/read cycles
+   - Verify checksum calculations
+   - Check for memory overflow
+   - Test circular buffer wraparound
+
+5. Network Recovery Failures:
+   - Monitor error counter accumulation
+   - Test bus reset sequences
+   - Verify sensor re-initialization
+   - Check interrupt handling priority
+
+Power Consumption Optimization:
+==============================
+
+Low Power Modes:
+1. Sensor Sleep: Put unused sensors in sleep mode
+2. Reduced Sampling: Lower update rates during idle
+3. LED Management: Duty cycle status LEDs
+4. MCU Sleep: Use IDLE mode between sensor reads
+5. Clock Scaling: Reduce system clock when possible
+
+Estimated Battery Life:
+- 3000mAh @ 5V: 60-120 hours continuous
+- With power management: 200-400 hours
+- Sleep mode: 1000+ hours
+
+Component Power Draw:
+- ATmega328P: 20mA (active), 1mA (idle)
+- Sensors: 5-10mA total (active)
+- Display: 20mA (OLED), 50mA (LCD)
+- LEDs: 10-80mA (depending on pattern)
+
+PCB Layout Recommendations:
+==========================
+
+1. Ground Plane: Use solid ground plane for noise reduction
+2. Power Planes: Separate 3.3V and 5V planes
+3. I2C Routing: Keep SCL/SDA traces short and parallel
+4. Decoupling: Place caps close to power pins
+5. Crystal: Keep crystal close to MCU with ground guard
+6. Analog: Separate analog and digital grounds
+7. EMI: Add ferrite beads on power lines if needed
