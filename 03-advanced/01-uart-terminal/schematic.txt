@@ -1,0 +1,304 @@
+Advanced UART Terminal System Circuit Schematic
+===============================================
+
+Multi-UART communication system with ESP8266, Bluetooth, and GPS modules:
+
+ATmega328P Main Controller
+                    VCC (+5V)
+                     │
+     ATmega328P      │
+     ┌─────────┐     │
+     │         │     │
+     │ Hardware UART (Primary Communication)
+     │   PD1   ├──────────────┐
+     │ (TX/TXD)│              │    ┌─────────────┐
+     │         │              ├────┤ RX          │ USB-to-Serial
+     │   PD0   ├──────────────┤    │ TX          │ (PC Connection)
+     │ (RX/RXD)│              ├────┤ GND         │ FTDI/CH340
+     │         │              │    │ VCC         │
+     │         │              │    └─────────────┘
+     │         │              │         │
+     │         │              │        PC via USB
+     │         │              │
+     │ Software UART #1 (Bluetooth HC-05)
+     │   PD2   ├──────────────┐
+     │ (BT_TX) │              │    ┌─────────────┐
+     │         │              ├────┤ RX          │
+     │   PD3   ├──────────────┤    │ TX          │ HC-05 Bluetooth
+     │ (BT_RX) │              ├────┤ VCC (+5V)   │ Module
+     │         │              │    │ GND         │
+     │         │              │    │ EN          │
+     │         │              │    └─────────────┘
+     │         │              │
+     │ Software UART #2 (GPS Module)
+     │   PD4   ├──────────────┐ (Not used - GPS TX)
+     │(GPS_TX) │              │
+     │         │              │    ┌─────────────┐
+     │   PD5   ├──────────────┤    │ TX          │
+     │(GPS_RX) │              ├────┤ RX          │ GPS Module
+     │         │              │    │ VCC (+3.3V) │ (NEO-6M/8M)
+     │         │              │    │ GND         │
+     │         │              │    └─────────────┘
+     │         │              │
+     │ ESP8266 Control        │
+     │   PC4   ├──────────────┼─────────────► ESP8266 Reset
+     │(ESP_RST)│              │
+     │         │              │
+     │ Status LEDs            │
+     │   PB0   ├──[220Ω]──┤▶├─┴─ GND (Status/Activity)
+     │(STATUS) │
+     │   PB1   ├──[220Ω]──┤▶├──── GND (WiFi Status)
+     │ (WIFI)  │
+     │   PB2   ├──[220Ω]──┤▶├──── GND (GPS Lock)
+     │ (GPS)   │
+     │   PB3   ├──[220Ω]──┤▶├──── GND (Error Indicator)
+     │ (ERROR) │
+     └─────────┘
+
+ESP8266 WiFi Module Connection Detail:
+=====================================
+
+ESP8266 (ESP-01 or NodeMCU)
+┌─────────────┐                    ATmega328P
+│ VCC (3.3V)  ├──── +3.3V ←────────── External 3.3V Regulator
+│ GND         ├──── GND
+│ CH_PD/EN    ├──── +3.3V (enable)
+│ RST         ├──── PC4 (reset control)
+│ GPIO0       ├──── +3.3V (normal boot)
+│ GPIO2       ├──── +3.3V (pull-up)
+│ RX          ├──── PD1 (TX) via Level Shifter
+│ TX          ├──── PD0 (RX) ← 3.3V signal OK
+└─────────────┘
+
+Level Shifter for ESP8266 Communication:
+┌─────────────┐         ┌─────────────┐
+│ 5V Side     │         │ 3.3V Side   │
+│             │         │             │
+│ HV      LV  ├─────────┤ LV      HV  │
+│ 5V     3.3V ├─────────┤ 3.3V    5V  │
+│ GND     GND ├─────────┤ GND    GND  │
+│             │         │             │
+│ A1 ────► B1 ├─────────┤ A1 ────► B1 │ PD1 → ESP RX
+│ A2 ◄──── B2 ├─────────┤ A2 ◄──── B2 │ PD0 ← ESP TX
+└─────────────┘         └─────────────┘
+
+HC-05 Bluetooth Module Connection Detail:
+=========================================
+
+HC-05 Bluetooth Module
+┌─────────────┐                    ATmega328P
+│ VCC (+5V)   ├──── +5V
+│ GND         ├──── GND
+│ RX          ├──── PD2 (BT_TX) ← 5V signal OK
+│ TX          ├──── PD3 (BT_RX) → 3.3V signal OK
+│ EN          ├──── VCC (always enabled)
+│ STATE       ├──── (Optional status LED)
+└─────────────┘
+
+AT Command Mode Configuration:
+- Hold EN pin HIGH during power-up for AT mode
+- Default baud rate: 9600 (can be changed via AT commands)
+- AT+NAME=EmbeddedTerm (set device name)
+- AT+PSWD=1234 (set pairing password)
+
+GPS Module Connection Detail:
+=============================
+
+NEO-6M/8M GPS Module
+┌─────────────┐                    ATmega328P
+│ VCC (+3.3V) ├──── +3.3V
+│ GND         ├──── GND
+│ TX          ├──── PD5 (GPS_RX) → NMEA data output
+│ RX          ├──── (Not connected - no commands needed)
+│ PPS         ├──── (Optional - pulse per second)
+└─────────────┘
+
+NMEA Sentence Format (received on PD5):
+$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
+$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A
+
+Power Supply Distribution:
+=========================
+
+                    +5V Input (USB or External)
+                     │
+        ┌────────────┼────────────┐
+        │            │            │
+     ATmega328P   HC-05 BT     USB-Serial
+        │            │            │
+        │            │         
+        │    ┌───────┴──────┐     
+        │    │ 3.3V Reg     │     
+        │    │ (AMS1117)    │     
+        │    └───────┬──────┘     
+        │            │            
+     Status LEDs  ESP8266      GPS Module
+        │            │            │
+        └────────────┼────────────┘
+                     │
+                   GND Common
+
+Decoupling Capacitors:
+                VCC Rails
+                 │
+    ┌────────────┼────────────┐
+    │            │            │
+   ┌┴┐          ┌┴┐          ┌┴┐
+   │ │ 100μF    │ │ 10μF     │ │ 100nF
+   └┬┘          └┬┘          └┬┘
+    │            │            │
+   GND          GND          GND
+  Bulk      Medium Freq   High Freq
+
+Protocol Analysis Test Points:
+=============================
+
+Oscilloscope/Logic Analyzer Connections:
+Ch0: PD0 (Hardware UART RX)    - Primary communication
+Ch1: PD1 (Hardware UART TX)    - Primary communication  
+Ch2: PD2 (Bluetooth TX)        - Software UART to BT
+Ch3: PD3 (Bluetooth RX)        - Software UART from BT
+Ch4: PD5 (GPS RX)              - GPS NMEA data
+Ch5: PB0 (Status LED)          - Activity indicator
+Ch6: PB1 (WiFi LED)            - WiFi connection status
+Ch7: PC4 (ESP Reset)           - ESP8266 control signal
+
+UART Signal Characteristics @ 9600 baud:
+┌─ Start ─┬─ D0 ─┬─ D1 ─┬─ D2 ─┬─ D3 ─┬─ D4 ─┬─ D5 ─┬─ D6 ─┬─ D7 ─┬─ Stop ─┐
+│    0    │  LSB │     │     │     │     │     │     │ MSB  │   1   │
+└─────────┴──────┴─────┴─────┴─────┴─────┴─────┴─────┴──────┴───────┘
+ 104μs per bit (9600 bps), Total frame: ~1.04ms for 8N1
+
+Binary Protocol Packet Structure:
+[START][CMD][LEN][PAYLOAD...][CRC_H][CRC_L][END]
+[ 0xAA][0x01][0x04][data...  ][CRC16 ][0x55]
+  1byte 1byte 1byte variable   2bytes  1byte
+
+AT Command Format:
+AT+COMMAND=PARAMETER\r\n
+Example: AT+WIFI=CONNECT\r\n
+
+Performance Measurements:
+========================
+
+Expected Throughput:
+- Hardware UART: 960 bytes/sec theoretical
+- Software UART: ~800 bytes/sec (CPU overhead)
+- Protocol overhead: ~10% (7 bytes per packet)
+
+Timing Requirements:
+- UART bit time: 104.17μs @ 9600 baud
+- Software UART accuracy: ±2% acceptable
+- Interrupt response: <10μs for real-time operation
+
+Memory Usage:
+- Ring buffers: 320 bytes total (HW:256, SW:128)
+- Protocol packets: 70 bytes max per packet
+- AT command buffer: 32 bytes
+- Total RAM usage: ~450 bytes
+
+CPU Load Estimation:
+- UART interrupts: ~5% @ full speed
+- Software UART: ~10% during transmission
+- Protocol processing: ~2% average
+- Total: <20% CPU usage under normal load
+
+Testing Procedures:
+==================
+
+1. Basic Communication Test:
+   - Connect USB-serial to PD0/PD1
+   - Open terminal @ 9600 baud
+   - Send "AT+PING" → expect "PONG"
+
+2. Binary Protocol Test:
+   - Send hex: AA 01 00 [CRC16] 55
+   - Expect response packet
+   - Verify CRC calculation
+
+3. Multi-device Test:
+   - Connect all modules (ESP8266, HC-05, GPS)
+   - Send AT+STATUS → verify all device states
+   - Test simultaneous communication
+
+4. Performance Test:
+   - Send continuous data streams
+   - Monitor buffer overflow conditions
+   - Measure actual throughput
+
+5. Error Recovery Test:
+   - Send corrupted packets
+   - Verify CRC error detection
+   - Check graceful recovery
+
+Troubleshooting Common Issues:
+=============================
+
+1. UART Communication Failure:
+   - Check baud rate settings (9600)
+   - Verify TX/RX pin connections
+   - Test with simple echo program
+
+2. ESP8266 Not Responding:
+   - Check 3.3V power supply (stable)
+   - Verify level shifter connections
+   - Try manual reset sequence
+
+3. Bluetooth Pairing Issues:
+   - Ensure HC-05 in pairing mode
+   - Check AT command responses
+   - Verify power supply voltage
+
+4. GPS No Lock:
+   - Ensure outdoor location or near window
+   - Check 3.3V power supply
+   - Wait minimum 30 seconds for cold start
+
+5. Software UART Timing Issues:
+   - Verify F_CPU setting (16MHz)
+   - Check for interrupt conflicts
+   - Use oscilloscope to measure bit timing
+
+Pin Summary Table:
+=================
+
+┌──────────┬─────────┬─────────────┬──────────────────┐
+│ Pin Name │ MCU Pin │ Direction   │ Function         │
+├──────────┼─────────┼─────────────┼──────────────────┤
+│ PD0      │ Pin 2   │ Input       │ HW UART RX       │
+│ PD1      │ Pin 3   │ Output      │ HW UART TX       │
+│ PD2      │ Pin 4   │ Output      │ BT UART TX       │
+│ PD3      │ Pin 5   │ Input       │ BT UART RX       │
+│ PD4      │ Pin 6   │ Output      │ GPS UART TX      │
+│ PD5      │ Pin 11  │ Input       │ GPS UART RX      │
+│ PB0      │ Pin 14  │ Output      │ Status LED       │
+│ PB1      │ Pin 15  │ Output      │ WiFi LED         │
+│ PB2      │ Pin 16  │ Output      │ GPS LED          │
+│ PB3      │ Pin 17  │ Output      │ Error LED        │
+│ PC4      │ Pin 27  │ Output      │ ESP8266 Reset    │
+└──────────┴─────────┴─────────────┴──────────────────┘
+
+Total Components Count:
+======================
+- ATmega328P: 1
+- ESP8266 Module: 1  
+- HC-05 Bluetooth: 1
+- GPS Module: 1
+- 3.3V Regulator: 1
+- Level Shifter: 1
+- LEDs: 4
+- Resistors (220Ω): 4
+- Capacitors: 6 (decoupling)
+- Breadboard/PCB connections
+
+Estimated Power Consumption:
+===========================
+- ATmega328P: ~20mA @ 16MHz
+- ESP8266: ~80mA active, ~15mA idle
+- HC-05: ~30mA active, ~8mA idle  
+- GPS: ~25mA acquiring, ~20mA tracking
+- LEDs: ~20mA each (4 × 5mA avg)
+- Total Max: ~175mA @ 5V
+- Total Typical: ~80mA @ 5V
+
+Recommended Power Supply: 5V, 500mA minimum
