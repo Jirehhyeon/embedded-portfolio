@@ -1,0 +1,583 @@
+Advanced PID Control System Circuit Schematic
+============================================
+
+Professional-grade PID controller with high-precision sensing, advanced signal processing, and multi-application support:
+
+ATmega328P PID Controller and High-Resolution ADC System
+                          VCC (+5V)
+                            │
+                            │
+              ATmega328P    │
+              ┌───────────┐ │
+              │           │ │
+              │ High-Resolution ADC System (12-bit oversampled)
+              │  ADC0     ├─┼──────────────── Feedback Sensor Input
+              │(FEEDBACK) │ │                 (0-5V, ±0.024% accuracy)
+              │  ADC1     ├─┼──────────────── Setpoint Potentiometer
+              │(SETPOINT) │ │                 (0-5V user input)
+              │  ADC2     ├─┼──────────────── Disturbance/Load Input
+              │(DISTURB)  │ │                 (Optional measurement)
+              │  ADC3     ├─┼──────────────── Temperature Compensation
+              │(TEMP_COMP)│ │                 (System calibration)
+              │           │ │
+              │ Control Output Generation     │
+              │  OC2B     ├─┼──────────────── PWM Output (PD3)
+              │(PWM_OUT)  │ │                 (8-bit, 7.8kHz)
+              │  PB0      ├─┼──────────────── Direction Control A
+              │(DIR_A)    │ │                 (H-bridge control)
+              │  PB1      ├─┼──────────────── Direction Control B
+              │(DIR_B)    │ │                 (H-bridge control)
+              │           │ │
+              │ System Timing and Interrupts  │
+              │  OC1A     ├─┼─── (Internal - 1kHz PID loop)
+              │           │ │
+              │  INT0     ├─┼──────────────── Auto-tune Button (PD2)
+              │(TUNE_BTN) │ │
+              │  INT1     ├─┼──────────────── Emergency Stop (PD3)
+              │(E_STOP)   │ │
+              │           │ │
+              │ Debug and Communication       │
+              │  TXD      ├─┼──────────────── UART TX (115200)
+              │  RXD      ├─┼──────────────── UART RX (115200)
+              │  PD4      ├─┼──────────────── Debug/Timing Pin
+              │(DEBUG)    │ │
+              │  PD5      ├─┼────[220Ω]────┤▶├─ GND (Status LED)
+              │(STATUS)   │ │               │
+              └───────────┘ │               │
+                            │              GND
+
+Multi-Channel Sensor Interface with Signal Conditioning
+=======================================================
+
+                    Precision Sensor Inputs
+                    ┌─────────────────────────────────┐
+                    │                                 │
+    External        │              ATmega328P         │
+    Sensors         │  ┌─────────────┐                │
+    ┌─────────────┐ │  │             │                │
+    │ Position    ├─┼──┤ ADC0        │                │ Encoder/Potentiometer
+    │ Encoder/Pot │ │  │             │                │ 0-5V, 0.1° resolution
+    │ 0-5V Output │ │  │             │                │
+    └─────────────┘ │  │             │                │
+                    │  │             │                │
+    ┌─────────────┐ │  │             │                │
+    │ Temperature ├─┼──┤ ADC1        │                │ Thermocouple/RTD
+    │ Sensor      │ │  │             │                │ Linearized output
+    │ -50°C to    │ │  │             │                │ 0.1°C accuracy
+    │ +200°C      │ │  │             │                │
+    └─────────────┘ │  │             │                │
+                    │  │             │                │
+    ┌─────────────┐ │  │             │                │
+    │ Speed/Flow  ├─┼──┤ ADC2        │                │ Tachometer/Flow meter
+    │ Sensor      │ │  │             │                │ 4-20mA converted
+    │ 0-6000 RPM  │ │  │             │                │ to 0-5V
+    └─────────────┘ │  │             │                │
+                    │  │             │                │
+    ┌─────────────┐ │  │             │                │
+    │ Pressure    ├─┼──┤ ADC3        │                │ Pressure transducer
+    │ Transducer  │ │  │             │                │ 0-1000 PSI
+    │ 0.5-4.5V    │ │  └─────────────┘                │ 0.1% accuracy
+    └─────────────┘ │                                 │
+                    └─────────────────────────────────┘
+
+Advanced Signal Conditioning Network
+=====================================
+
+                    Anti-Aliasing and Noise Filtering
+                    ┌─────────────────────────────────┐
+                    │                                 │
+    Sensor Signal   │     Input Conditioning          │    To ADC
+    ──────────────────┼─────────────────────────────────┼─────────
+                    │                                 │
+    ┌───────────────┼─────────────────────────────────┼───────┐
+    │               │                                 │       │
+    │  Pre-Amplifier│         Filter Network          │Buffer │
+    │  ┌─────────┐  │  ┌─────────┐  ┌─────────┐       │ ┌───┐ │
+    │  │   Op    │  │  │ 2nd     │  │  TVS    │       │ │Op │ │
+    │  │  Amp    ├──┼──┤ Order   ├──┼─ Diode  ├───────┼─┤Amp├─┼─► ADC
+    │  │ (×10)   │  │  │ LPF     │  │ Protect │       │ │×1 │ │
+    │  │         │  │  │100Hz    │  │         │       │ └───┘ │
+    │  └─────────┘  │  └─────────┘  └─────────┘       │       │
+    │    ┌─────┐    │                                 │       │
+    │    │10kΩ │    │     Decoupling Network          │       │
+    │    └──┬──┘    │  ┌─────┐ ┌─────┐ ┌─────┐        │       │
+    │       │       │  │100nF│ │10μF │ │100μF│        │       │
+    │      GND      │  └──┬──┘ └──┬──┘ └──┬──┘        │       │
+    │               │     │       │       │           │       │
+    │               │    HF       MF      LF          │       │
+    │               │  Noise    Noise   Supply        │       │
+    │               │  Filter   Filter  Decoupling    │       │
+    └───────────────┼─────────────────────────────────┼───────┘
+                    │                                 │
+                    └─────────────────────────────────┘
+
+Signal Conditioning Specifications:
+┌─────────────────┬─────────────┬─────────────────┬──────────────────┐
+│ Channel         │ Input Range │ Gain            │ Bandwidth        │
+├─────────────────┼─────────────┼─────────────────┼──────────────────┤
+│ Position        │ 0-5V        │ Unity           │ DC-1kHz          │
+│ Temperature     │ ±100mV      │ ×50             │ DC-1Hz           │
+│ Speed/Flow      │ 4-20mA      │ 250Ω shunt     │ DC-500Hz         │
+│ Pressure        │ 0.5-4.5V    │ Unity           │ DC-100Hz         │
+└─────────────────┴─────────────┴─────────────────┴──────────────────┘
+
+High-Performance Control Output Stage
+=====================================
+
+                    PWM Generation and Power Amplification
+                    ┌─────────────────────────────────────────┐
+                    │                                         │
+    ATmega328P      │         Power Driver Circuit            │    Load
+    ┌─────────────┐ │  ┌─────────────────────────────────────┐│  ┌───────┐
+    │ PWM Output  ├─┼──┤ Gate Driver       Power Stage       ││  │       │
+    │ (PD3/OC2B)  │ │  │  ┌─────────┐   ┌─────────────────┐││  │ DC    │
+    │ 8-bit       │ │  │  │IR2110   │   │ MOSFET H-Bridge │││  │ Motor │
+    │ 7.8kHz      ├─┼──┤  │High/Low ├───┤ IRF540N (×4)    │├┼──┤ 24V   │
+    │             │ │  │  │Side     │   │ 100V, 30A       │││  │ 500W  │
+    │ Direction   │ │  │  └─────────┘   └─────────────────┘││  │       │
+    │ Control     │ │  │                                   ││  └───────┘
+    │ PB0/PB1     ├─┼──┤ Logic Level Translation            ││
+    │             │ │  │  ┌─────────┐                      ││
+    └─────────────┘ │  │  │74HC241  │  Current Sensing     ││
+                    │  │  │Buffer   │  ┌─────────────────┐ ││
+                    │  │  └─────────┘  │ ACS712 30A      │ ││
+                    │  │               │ Hall Effect     │ ││
+                    │  │               │ Current Sensor  ├─┼┼── Feedback
+                    │  │               └─────────────────┘ ││   to ADC2
+                    │  └─────────────────────────────────────┘│
+                    └─────────────────────────────────────────┘
+
+Power Stage Specifications:
+- Maximum Output Power: 500W (24V × 20A)
+- PWM Frequency: 7.8kHz (above audible range)
+- Switching Rise/Fall Time: <100ns
+- Thermal Protection: Built-in
+- Current Limiting: 30A maximum
+- Efficiency: >95% at full load
+
+User Interface and Control Panel
+================================
+
+                    Human-Machine Interface
+                    ┌─────────────────────────────────────┐
+                    │                                     │
+    User Controls   │         Control Panel               │
+    ┌─────────────┐ │  ┌─────────────────────────────────┐│
+    │ Setpoint    ├─┼──┤ 10-turn Potentiometer          ││
+    │ Pot 10kΩ    │ │  │ Setpoint: 0-100%               ││
+    │ ±0.1%       │ │  └─────────────────────────────────┘│
+    └─────────────┘ │                                     │
+                    │  ┌─────────────────────────────────┐│
+    ┌─────────────┐ │  │ Mode Selection Switches         ││
+    │ Auto/Manual ├─┼──┤ - Auto/Manual Mode              ││
+    │ Toggle      │ │  │ - Tuning Enable                 ││
+    │ Switch      │ │  │ - Emergency Stop                ││
+    └─────────────┘ │  └─────────────────────────────────┘│
+                    │                                     │
+    ┌─────────────┐ │  ┌─────────────────────────────────┐│
+    │ Tune Button ├─┼──┤ Start Auto-tuning Process       ││
+    │ Momentary   │ │  │ - Ziegler-Nichols Method        ││
+    │ N.O.        │ │  │ - Genetic Algorithm Option      ││
+    └─────────────┘ │  └─────────────────────────────────┘│
+                    │                                     │
+    Status Display  │  ┌─────────────────────────────────┐│
+    ┌─────────────┐ │  │ Multi-color Status LEDs         ││
+    │ System      ├─┼──┤ Green: Normal Operation         ││
+    │ Status      │ │  │ Yellow: Tuning in Progress      ││
+    │ LEDs        │ │  │ Red: Fault/Alarm Condition      ││
+    │ (RGB)       │ │  │ Blue: Manual Mode Active        ││
+    └─────────────┘ │  └─────────────────────────────────┘│
+                    └─────────────────────────────────────┘
+
+System Communication and Data Logging
+=====================================
+
+                    Communication Interface
+                    ┌─────────────────────────────────────┐
+                    │                                     │
+    PC/HMI          │              ATmega328P             │
+    ┌─────────────┐ │  ┌─────────────┐                    │
+    │ UART        │ │  │             │                    │
+    │ Terminal    ├─┼──┤ UART0       │  Real-time Data    │
+    │ 115200      │ │  │ TXD/RXD     │  - PID parameters  │
+    │ 8N1         │ │  │             │  - Process values  │
+    └─────────────┘ │  │             │  - Performance     │
+                    │  │             │    metrics         │
+                    │  │             │  - Tuning results  │
+                    │  └─────────────┘                    │
+                    │                                     │
+    ┌─────────────┐ │  ┌─────────────┐                    │
+    │ Data Logger ├─┼──┤ I2C/SPI     │  External Storage  │
+    │ SD Card     │ │  │ Interface   │  - Historical data │
+    │ Module      │ │  │             │  - Configuration   │
+    │ (Optional)  │ │  │             │    backup          │
+    └─────────────┘ │  └─────────────┘                    │
+                    └─────────────────────────────────────┘
+
+Communication Protocol:
+┌─────────────────┬─────────────────────────────────────────┐
+│ Command Type    │ Format                                  │
+├─────────────────┼─────────────────────────────────────────┤
+│ Parameter Set   │ "SET KP 1.25\r\n"                      │
+│ Parameter Get   │ "GET KP\r\n" → "KP=1.25\r\n"          │
+│ Status Request  │ "STATUS\r\n" → Multi-line response     │
+│ Data Stream     │ "STREAM ON\r\n" → CSV data at 10Hz     │
+│ Auto-tune       │ "TUNE ZN\r\n" → Tuning process start  │
+│ Save Config     │ "SAVE\r\n" → Parameters to EEPROM     │
+└─────────────────┴─────────────────────────────────────────┘
+
+Advanced Timing and Synchronization
+===================================
+
+                    Precision Timing Architecture
+                    ┌─────────────────────────────────────┐
+                    │                                     │
+    External Clock  │         Timing Generation           │
+    (Optional)      │  ┌─────────────────────────────────┐│
+    ┌─────────────┐ │  │ ATmega328P Timer Configuration  ││
+    │ 16MHz       ├─┼──┤ Timer1: PID Control Loop        ││
+    │ Crystal     │ │  │ - CTC Mode, 1ms interrupts      ││
+    │ ±50ppm      │ │  │ - OCR1A = 15999 (prescaler 1)   ││
+    │ Stability   │ │  │                                 ││
+    └─────────────┘ │  │ Timer2: PWM Output Generation   ││
+                    │  │ - Fast PWM, 7.8kHz frequency    ││
+                    │  │ - OC2B output (PD3)             ││
+                    │  │                                 ││
+                    │  │ Timer0: General purpose timing  ││
+                    │  │ - Delay functions               ││
+                    │  │ - Timeout monitoring            ││
+                    │  └─────────────────────────────────┘│
+                    └─────────────────────────────────────┘
+
+Timing Budget Analysis (1ms control period):
+┌─────────────────┬─────────────┬─────────────────────────┐
+│ Operation       │ Time (μs)   │ Percentage of Budget    │
+├─────────────────┼─────────────┼─────────────────────────┤
+│ ADC Sampling    │ 200         │ 20%                     │
+│ Digital Filter  │ 80          │ 8%                      │
+│ PID Calculation │ 120         │ 12%                     │
+│ Output Update   │ 50          │ 5%                      │
+│ Communication   │ 100         │ 10%                     │
+│ Monitoring      │ 80          │ 8%                      │
+│ Reserve         │ 370         │ 37%                     │
+└─────────────────┴─────────────┴─────────────────────────┘
+
+Real-Time Performance Monitoring
+================================
+
+                    System Health Monitoring
+                    ┌─────────────────────────────────────┐
+                    │                                     │
+    Diagnostics     │         Health Indicators           │
+    ┌─────────────┐ │  ┌─────────────────────────────────┐│
+    │ Watchdog    ├─┼──┤ Software Watchdog Timer         ││
+    │ Timer       │ │  │ - 1 second timeout              ││
+    │ External    │ │  │ - System reset on failure       ││
+    └─────────────┘ │  └─────────────────────────────────┘│
+                    │                                     │
+    ┌─────────────┐ │  ┌─────────────────────────────────┐│
+    │ Performance ├─┼──┤ Real-time Metrics               ││
+    │ Counters    │ │  │ - Control loop execution time   ││
+    │             │ │  │ - Memory usage tracking         ││
+    │             │ │  │ - Error rate monitoring         ││
+    └─────────────┘ │  └─────────────────────────────────┘│
+                    │                                     │
+    ┌─────────────┐ │  ┌─────────────────────────────────┐│
+    │ Fault       ├─┼──┤ Fault Detection Logic           ││
+    │ Detection   │ │  │ - Sensor range validation       ││
+    │             │ │  │ - Output saturation detection   ││
+    │             │ │  │ - Communication timeouts        ││
+    └─────────────┘ │  └─────────────────────────────────┘│
+                    └─────────────────────────────────────┘
+
+Power Supply and Protection Circuits
+====================================
+
+                    Robust Power Management
+                    ┌─────────────────────────────────────┐
+                    │                                     │
+    AC Mains        │         Power Supply System         │  DC Outputs
+    ┌─────────────┐ │  ┌─────────────────────────────────┐│  ┌───────┐
+    │ 120/240VAC ├─┼──┤ Switching Power Supply          ││  │ +24V  │
+    │ Input       │ │  │ - 85-265VAC input range         ├┼──┤ 5A    │
+    │ 50/60Hz     │ │  │ - Isolated output               ││  │ Motor │
+    └─────────────┘ │  │ - 90% efficiency                ││  └───────┘
+                    │  └─────────────────────────────────┘│
+                    │                                     │  ┌───────┐
+                    │  ┌─────────────────────────────────┐│  │ +5V   │
+                    │  │ Linear Regulator (LM7805)       ├┼──┤ 1A    │
+                    │  │ - Low noise for analog circuits ││  │ Logic │
+                    │  │ - Thermal protection            ││  └───────┘
+                    │  └─────────────────────────────────┘│
+                    │                                     │  ┌───────┐
+                    │  ┌─────────────────────────────────┐│  │ +3.3V │
+                    │  │ LDO Regulator (AMS1117-3.3)     ├┼──┤ 0.5A  │
+                    │  │ - Precision reference           ││  │ ADC   │
+                    │  │ - Low dropout voltage           ││  └───────┘
+                    │  └─────────────────────────────────┘│
+                    └─────────────────────────────────────┘
+
+Protection Circuits:
+┌─────────────────┬─────────────────────────────────────────┐
+│ Protection Type │ Implementation                          │
+├─────────────────┼─────────────────────────────────────────┤
+│ Overvoltage     │ TVS diodes on all inputs/outputs       │
+│ Overcurrent     │ Fuses and current sensing               │
+│ ESD Protection  │ Zener diodes on I/O pins               │
+│ Thermal         │ Temperature monitoring and shutdown     │
+│ EMI Filtering   │ Ferrite beads and bypass capacitors    │
+└─────────────────┴─────────────────────────────────────────┘
+
+Application-Specific Control Configurations
+===========================================
+
+Motor Speed Control Application:
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│  Encoder       PID         PWM          Motor           │
+│  ┌───────┐    Controller  Amplifier    ┌─────────┐     │
+│  │Optical├────► ATmega  ──────────────► │ BLDC    │     │
+│  │1000PPR│      328P       H-Bridge     │ 24V     │     │
+│  └───────┘                              │ 500W    │     │
+│     │                                   └─────────┘     │
+│     └─── Speed Feedback ←───────────────────┘          │
+│                                                         │
+│ Typical PID Parameters:                                 │
+│   Kp = 2.0   (proportional gain)                       │
+│   Ki = 0.5   (integral gain)                           │
+│   Kd = 0.1   (derivative gain)                         │
+│                                                         │
+│ Performance Specifications:                             │
+│   Speed Range: 0-6000 RPM                              │
+│   Accuracy: ±0.1% of setpoint                          │
+│   Settling Time: <500ms                                 │
+│   Load Regulation: ±1% with 50% load change            │
+└─────────────────────────────────────────────────────────┘
+
+Temperature Control Application:
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│  Thermocouple  PID         SSR           Heater         │
+│  ┌───────┐    Controller  Control      ┌─────────┐     │
+│  │K-Type ├────► ATmega  ──────────────► │ 2kW     │     │
+│  │Sensor │      328P       Zero-Cross   │ Element │     │
+│  └───────┘                              └─────────┘     │
+│     │                                       │           │
+│     └─── Temperature Feedback ←─────────────┘          │
+│                                                         │
+│ Typical PID Parameters:                                 │
+│   Kp = 1.5   (proportional gain)                       │
+│   Ki = 0.01  (integral gain - slow process)            │
+│   Kd = 25    (derivative gain - noise filtering)       │
+│                                                         │
+│ Performance Specifications:                             │
+│   Temperature Range: 20-500°C                          │
+│   Accuracy: ±0.5°C steady-state                        │
+│   Settling Time: <300 seconds                          │
+│   Overshoot: <2°C                                      │
+└─────────────────────────────────────────────────────────┘
+
+Position Control Application:
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│  Encoder       PID         Servo         Load           │
+│  ┌───────┐    Controller  Amplifier    ┌─────────┐     │
+│  │Rotary ├────► ATmega  ──────────────► │ Servo   │     │
+│  │Absolute│     328P       ±10V         │ Motor   │     │
+│  │12-bit  │                             │ 1Nm     │     │
+│  └───────┘                              └─────────┘     │
+│     │                                       │           │
+│     └─── Position Feedback ←────────────────┘          │
+│                                                         │
+│ Typical PID Parameters:                                 │
+│   Kp = 5.0   (proportional gain)                       │
+│   Ki = 0.2   (integral gain)                           │
+│   Kd = 0.05  (derivative gain)                         │
+│                                                         │
+│ Performance Specifications:                             │
+│   Position Range: ±180° (absolute)                     │
+│   Resolution: 0.088° (4096 counts)                     │
+│   Accuracy: ±0.1° steady-state                         │
+│   Settling Time: <200ms                                 │
+│   Following Error: <0.5° at 10°/s                      │
+└─────────────────────────────────────────────────────────┘
+
+Advanced Features and Expansion Options
+======================================
+
+Real-Time Data Acquisition and Analysis:
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│ High-Speed Data Logging System                          │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ Circular Buffers (1000 samples each):              │ │
+│ │ - Setpoint history                                  │ │
+│ │ - Process value history                             │ │
+│ │ - Control output history                            │ │
+│ │ - Error signal history                              │ │
+│ └─────────────────────────────────────────────────────┘ │
+│                                                         │
+│ Real-Time Analysis:                                     │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ Performance Metrics Calculation:                    │ │
+│ │ - Rise time measurement (10%-90%)                   │ │
+│ │ - Settling time calculation (±2% band)              │ │
+│ │ - Overshoot percentage determination                │ │
+│ │ - Integral performance indices (IAE, ISE, ITAE)    │ │
+│ └─────────────────────────────────────────────────────┘ │
+│                                                         │
+│ Frequency Domain Analysis (Optional):                   │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ FFT Processing (64-point):                          │ │
+│ │ - System frequency response estimation              │ │
+│ │ - Disturbance spectrum analysis                     │ │
+│ │ - Control bandwidth determination                   │ │
+│ │ - Stability margin assessment                       │ │
+│ └─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+
+Network Connectivity and Remote Monitoring:
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│ Communication Expansion Modules:                        │
+│                                                         │
+│ ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│ │ WiFi        │  │ Ethernet    │  │ CAN Bus     │      │
+│ │ ESP8266     │  │ ENC28J60    │  │ MCP2515     │      │
+│ │ Module      │  │ Controller  │  │ Controller  │      │
+│ │ (SPI)       │  │ (SPI)       │  │ (SPI)       │      │
+│ └─────────────┘  └─────────────┘  └─────────────┘      │
+│                                                         │
+│ Remote Capabilities:                                    │
+│ - Web-based control interface                           │
+│ - Real-time data streaming                              │
+│ - Parameter adjustment via network                      │
+│ - Alarm and notification system                         │
+│ - Historical data download                              │
+│ - Multi-controller coordination                         │
+└─────────────────────────────────────────────────────────┘
+
+Testing and Calibration Equipment Integration
+============================================
+
+Professional Test Setup:
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│ Required Test Equipment:                                │
+│                                                         │
+│ ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│ │ Oscilloscope│  │ Function    │  │ DMM         │      │
+│ │ 4 Channel   │  │ Generator   │  │ 6.5 Digit   │      │
+│ │ 100MHz      │  │ 10MHz       │  │ Calibrated  │      │
+│ └─────────────┘  └─────────────┘  └─────────────┘      │
+│                                                         │
+│ ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│ │ Logic       │  │ Power       │  │ Data        │      │
+│ │ Analyzer    │  │ Analyzer    │  │ Acquisition │      │
+│ │ 32 Channel  │  │ 4 Channel   │  │ System      │      │
+│ └─────────────┘  └─────────────┘  └─────────────┘      │
+│                                                         │
+│ Test Connections:                                       │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ Ch1: Control loop timing (PD4)                      │ │
+│ │ Ch2: PWM output signal (PD3)                        │ │
+│ │ Ch3: ADC conversion trigger                         │ │
+│ │ Ch4: Process value analog signal                    │ │
+│ │ Digital: All I/O pins for state analysis           │ │
+│ └─────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+
+Automated Test Procedures:
+┌─────────────────┬─────────────────────────────────────────┐
+│ Test Type       │ Procedure                               │
+├─────────────────┼─────────────────────────────────────────┤
+│ Step Response   │ Apply 50% setpoint step, measure:      │
+│                 │ - Rise time (10%-90%)                   │
+│                 │ - Settling time (±2%)                   │
+│                 │ - Overshoot percentage                  │
+│                 │ - Steady-state error                    │
+├─────────────────┼─────────────────────────────────────────┤
+│ Frequency       │ Inject sine waves 0.1-100Hz:           │
+│ Response        │ - Measure gain and phase               │
+│                 │ - Plot Bode diagram                     │
+│                 │ - Determine bandwidth                   │
+│                 │ - Calculate margins                     │
+├─────────────────┼─────────────────────────────────────────┤
+│ Disturbance     │ Apply load steps at output:            │
+│ Rejection       │ - Measure recovery time                │
+│                 │ - Calculate disturbance attenuation    │
+│                 │ - Verify stability                      │
+├─────────────────┼─────────────────────────────────────────┤
+│ Noise           │ Add measurement noise:                  │
+│ Immunity        │ - Verify filter effectiveness          │
+│                 │ - Check control performance             │
+│                 │ - Measure signal-to-noise ratio        │
+└─────────────────┴─────────────────────────────────────────┘
+
+Safety and Compliance Considerations
+===================================
+
+Industrial Safety Standards Compliance:
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│ Safety Features Implementation:                         │
+│                                                         │
+│ ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│ │ Emergency   │  │ Fault       │  │ Watchdog    │      │
+│ │ Stop        │  │ Detection   │  │ Timer       │      │
+│ │ (Hard Stop) │  │ Logic       │  │ Reset       │      │
+│ └─────────────┘  └─────────────┘  └─────────────┘      │
+│                                                         │
+│ ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│ │ Interlock   │  │ Safe State  │  │ Diagnostic  │      │
+│ │ Monitoring  │  │ Default     │  │ Logging     │      │
+│ │             │  │             │  │             │      │
+│ └─────────────┘  └─────────────┘  └─────────────┘      │
+│                                                         │
+│ Compliance Standards:                                   │
+│ - IEC 61508 (Functional Safety)                        │
+│ - IEC 61131 (Programmable Controllers)                 │
+│ - IEEE 828 (Software Configuration Management)         │
+│ - ISO 9001 (Quality Management)                        │
+│ - UL 508A (Industrial Control Panels)                  │
+└─────────────────────────────────────────────────────────┘
+
+Environmental and EMC Specifications:
+┌─────────────────┬─────────────┬─────────────────┬───────┐
+│ Parameter       │ Min         │ Max             │ Unit  │
+├─────────────────┼─────────────┼─────────────────┼───────┤
+│ Operating Temp  │ -20         │ +70             │ °C    │
+│ Storage Temp    │ -40         │ +125            │ °C    │
+│ Humidity        │ 10          │ 95 (non-cond.)  │ %RH   │
+│ Supply Voltage  │ 20          │ 30              │ VDC   │
+│ EMI Immunity    │ Level 3     │ IEC 61000-4     │ -     │
+│ EMC Emissions   │ Class A     │ FCC Part 15     │ -     │
+│ Shock/Vibration │ IEC 60068   │ Test standards  │ -     │
+└─────────────────┴─────────────┴─────────────────┴───────┘
+
+Manufacturing and Quality Control
+=================================
+
+Production Test Procedures:
+1. In-Circuit Test (ICT) - Component and connectivity verification
+2. Functional Test - Basic operation validation  
+3. Calibration - Precision adjustment of references
+4. Performance Test - PID response characterization
+5. Environmental Test - Temperature and humidity cycling
+6. Final Inspection - Visual and documentation review
+
+Quality Metrics:
+- First Pass Yield: >95%
+- Field Failure Rate: <0.1% per year
+- Calibration Drift: <0.01% per year
+- MTBF: >50,000 hours
+- Warranty Period: 2 years
+
+Documentation Package:
+- Complete schematic diagrams
+- PCB layout and assembly drawings  
+- Bill of materials with specifications
+- Software source code and documentation
+- Calibration procedures and certificates
+- User manual and programming guide
+- Compliance test reports and certifications
