@@ -1,0 +1,74 @@
+Button Input Circuit Schematic
+==============================
+
+Complete circuit with 2 buttons and LED:
+
+                    VCC (+5V)
+                     │
+                    ┌┴┐
+                    │ │ 10kΩ (Optional External Pull-up)
+                    └┬┘
+     ATmega328P      │                    VCC
+     ┌──────────┐    │                     │
+     │          │    │                    ┌┴┐
+     │     PD2  ├────┴──────┬─────────────┤ │ 10kΩ
+     │   (INT0) │           │             └┬┘
+     │  Button1 │         ──┴──            │
+     │          │         ──── SW1         │
+     │          │           │              │
+     │          │           └──────────────┴─── GND
+     │          │
+     │     PD3  ├───────────┬─────────────┐
+     │   (INT1) │           │             │
+     │  Button2 │         ──┴──          ┌┴┐
+     │          │         ──── SW2       │ │ 10kΩ
+     │          │           │            └┬┘
+     │          │           │             │
+     │          │           └─────────────┴─── GND
+     │          │
+     │     PB5  ├────[220Ω]────┤▶├─── GND
+     │  (Pin 13)│              LED
+     │    LED   │         (Red/Green)
+     │          │
+     └──────────┘
+
+Components:
+- SW1, SW2: Tactile push buttons (normally open)
+- R1, R2: 10kΩ pull-up resistors (optional - can use internal pull-ups)
+- R3: 220Ω LED current limiting resistor
+- LED: Standard 5mm LED
+
+Pin Connections:
+┌─────────────┬──────────────┬─────────────────┐
+│ MCU Pin     │ Arduino Pin  │ Function        │
+├─────────────┼──────────────┼─────────────────┤
+│ PD2         │ Digital 2    │ Button 1 (INT0) │
+│ PD3         │ Digital 3    │ Button 2 (INT1) │
+│ PB5         │ Digital 13   │ LED Output      │
+└─────────────┴──────────────┴─────────────────┘
+
+Notes:
+1. Internal pull-up resistors can be used instead of external ones
+2. Buttons connect to GND when pressed (active LOW)
+3. Software debouncing is implemented (50ms default)
+4. INT0 and INT1 allow hardware interrupt capability
+
+Button States:
+- Not pressed: Pin reads HIGH (pulled up to VCC)
+- Pressed: Pin reads LOW (connected to GND)
+
+Debouncing Circuit (Hardware Option):
+                  VCC
+                   │
+                  ┌┴┐
+                  │ │ 10kΩ
+                  └┬┘
+                   │
+     To MCU ───────┼──────┬────── 100nF ──── GND
+                   │      │
+                   │    ──┴──
+                   │    ──── Switch
+                   │      │
+                   └──────┴────── GND
+
+The capacitor helps filter out mechanical bounce.

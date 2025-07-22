@@ -1,0 +1,127 @@
+PWM RGB LED Control Circuit Schematic
+====================================
+
+Complete circuit with RGB LED, potentiometer, and control buttons:
+
+                    VCC (+5V)
+                     │
+                    ┌┴┐
+     ATmega328P     │ │ 10kΩ Potentiometer
+     ┌──────────┐   │ │
+     │          │   │ │◄─── Wiper to PC0
+     │    PC0   ├───┴─┘
+     │  (ADC0)  │     │
+     │          │    GND
+     │          │
+     │    PD6   ├────[220Ω]────┤▶├─── GND  (Red LED)
+     │  (OC0A)  │              LED
+     │          │
+     │    PD5   ├────[220Ω]────┤▶├─── GND  (Green LED)
+     │  (OC0B)  │              LED
+     │          │
+     │    PB1   ├────[220Ω]────┤▶├─── GND  (Blue LED)
+     │  (OC1A)  │              LED
+     │          │
+     │          │        VCC
+     │    PD2   ├─────────┤
+     │ (Button1)│         │
+     │          │       ──┴──
+     │          │       ──── SW1 (Mode Select)
+     │          │         │
+     │          │        GND
+     │          │
+     │    PD3   ├─────────┐
+     │ (Button2)│         │
+     │          │       ──┴──
+     │          │       ──── SW2 (Color Select)
+     │          │         │
+     └──────────┘        GND
+
+Alternative RGB LED Configuration:
+=================================
+
+Common Cathode RGB LED:
+                       VCC
+                        │
+     ┌─[220Ω]─ Red   ──┼── PD6
+     │                 │
+     │ ┌─[220Ω]─ Green ┼── PD5  
+     │ │               │
+     │ │ ┌─[220Ω]─ Blue┼── PB1
+     │ │ │             │
+    ┌┴─┴─┴┐          Ground
+    │RGB  │            │
+    │ LED │            │
+    └──┬──┘           GND
+       │
+      GND
+
+Common Anode RGB LED:
+                      Ground
+                        │
+     ┌─[220Ω]─ Red   ──┼── PD6
+     │                 │
+     │ ┌─[220Ω]─ Green ┼── PD5  
+     │ │               │
+     │ │ ┌─[220Ω]─ Blue┼── PB1
+     │ │ │             │
+    ┌┴─┴─┴┐           VCC
+    │RGB  │            │
+    │ LED │            │
+    └──┬──┘           VCC
+       │
+      VCC
+
+Pin Mapping:
+===========
+┌─────────────┬──────────────┬─────────────────┬──────────────┐
+│ MCU Pin     │ Arduino Pin  │ PWM Timer       │ Function     │
+├─────────────┼──────────────┼─────────────────┼──────────────┤
+│ PD6         │ Digital 6    │ Timer0 OC0A     │ Red PWM      │
+│ PD5         │ Digital 5    │ Timer0 OC0B     │ Green PWM    │
+│ PB1         │ Digital 9    │ Timer1 OC1A     │ Blue PWM     │
+│ PC0         │ Analog 0     │ ADC0            │ Brightness   │
+│ PD2         │ Digital 2    │ -               │ Mode Button  │
+│ PD3         │ Digital 3    │ -               │ Color Button │
+└─────────────┴──────────────┴─────────────────┴──────────────┘
+
+PWM Specifications:
+==================
+- PWM Resolution: 8-bit (0-255 levels)
+- PWM Frequency: 7.812 kHz (Fast PWM mode)
+- Prescaler: 8 (for both Timer0 and Timer1)
+
+PWM Calculation:
+PWM_Freq = F_CPU / (Prescaler × (1 + TOP))
+         = 16MHz / (8 × 256) 
+         = 7812.5 Hz
+
+ADC Specifications:
+==================
+- Resolution: 10-bit (0-1023 values)
+- Reference: AVCC (5V)
+- Input range: 0-5V
+- Conversion time: ~104μs at 125kHz ADC clock
+
+Component Values:
+================
+- R1, R2, R3: 220Ω (Red-Red-Brown-Gold)
+- POT1: 10kΩ linear potentiometer
+- SW1, SW2: Tactile push buttons
+- LEDs: Standard 5mm LEDs or common cathode RGB LED
+
+Effect Modes:
+============
+1. Manual: Potentiometer controls brightness, Button2 selects color
+2. Fade: Smooth color transitions, speed controlled by potentiometer
+3. Rainbow: HSV color wheel effect, speed controlled by potentiometer
+4. Breathing: Sinusoidal brightness variation
+5. Strobe: White flash effect, frequency controlled by potentiometer
+6. Fire: Random flame-like color variations
+
+Testing Points:
+==============
+- Use oscilloscope to measure PWM signals on OC0A, OC0B, OC1A
+- Verify 7.8kHz frequency with varying duty cycles
+- Check ADC values using serial monitor (if UART enabled)
+- Measure LED current (should be ~14mA max per channel)
