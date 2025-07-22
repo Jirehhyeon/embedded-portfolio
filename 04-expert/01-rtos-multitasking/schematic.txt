@@ -1,0 +1,634 @@
+Advanced RTOS Multitasking System Circuit Schematic
+====================================================
+
+Real-time operating system with preemptive scheduling, inter-task communication, and comprehensive debugging capabilities:
+
+ATmega328P RTOS Controller and System Timer
+                        VCC (+5V)
+                          │
+                          │
+            ATmega328P    │
+            ┌───────────┐ │
+            │           │ │
+            │ System Timer (Timer1 - 1ms tick)
+            │  OC1A     ├─┼─── (Internal - RTOS tick)
+            │           │ │
+            │ Task Activity Monitoring
+            │  PB0      ├─┼────[220Ω]──┤▶├─ GND (Task 1 LED - Green)
+            │(TASK1_LED)│ │             │
+            │  PB1      ├─┼────[220Ω]──┤▶├─ GND (Task 2 LED - Blue)
+            │(TASK2_LED)│ │             │
+            │  PB2      ├─┼────[220Ω]──┤▶├─ GND (System Activity - Yellow)
+            │(ACTIVITY) │ │             │
+            │  PB3      ├─┼────[220Ω]──┤▶├─ GND (Error/Overflow - Red)
+            │(ERROR_LED)│ │             │
+            │           │ │             │
+            │ Debug and Profiling       │
+            │  PD3      ├─┼─────────────── Debug Pin (Context Switch)
+            │(DEBUG_PIN)│ │             │
+            │           │ │             │
+            │ User Input Interface      │
+            │  PD2      ├─┼─────────────── Button Input (INT0)
+            │  (INT0)   │ │             │
+            │           │ │             │
+            │ UART Debug Console        │
+            │  PD1      ├─┼─────────────── TX (Debug Output - 115200)
+            │  (TXD)    │ │             │
+            │  PD0      ├─┼─────────────── RX (Debug Input - 115200)
+            │  (RXD)    │ │             │
+            │           │ │             │
+            │ Crystal Oscillator        │
+            │  XTAL1    ├─┐             │
+            │  XTAL2    ├─┤ 16MHz       │
+            │           │ │ Crystal     │
+            └───────────┘ │             │
+                          └─────────────┼─ GND
+                                        │
+                    Load Capacitors     │
+                    ┌─ 22pF ─┐          │
+                   ┌┴┐      ┌┴┐         │
+                   │ │      │ │         │
+                   └┬┘      └┬┘         │
+                    │        │          │
+                   GND      GND        GND
+
+Task Activity Visualization System
+==================================
+
+                    Task State LEDs
+                    ┌─────────────────────────────────┐
+                    │                                 │
+    ATmega328P      │ Task 1 (LED Blinker - 500ms)   │
+    ┌─────────────┐ │                                 │
+    │ PB0         ├─┼──[220Ω]──┤▶├─ GND              │ Green LED
+    │(TASK1_LED)  │ │           │                     │
+    │             │ │                                 │
+    │ PB1         ├─┼──[220Ω]──┤▶├─ GND              │ Blue LED
+    │(TASK2_LED)  │ │           │                     │ Task 2 (LED Blinker - 300ms)
+    │             │ │                                 │
+    │ PB2         ├─┼──[220Ω]──┤▶├─ GND              │ Yellow LED
+    │(ACTIVITY)   │ │           │                     │ System Activity (1ms toggle)
+    │             │ │                                 │
+    │ PB3         ├─┼──[220Ω]──┤▶├─ GND              │ Red LED
+    │(ERROR_LED)  │ │           │                     │ Stack Overflow / System Error
+    │             │ │                                 │
+    └─────────────┘ └─────────────────────────────────┘
+
+LED Status Patterns and RTOS State Indication:
+┌─────────────────┬─────────────┬──────────────────────────┐
+│ System State    │ LED Pattern │ Description              │
+├─────────────────┼─────────────┼──────────────────────────┤
+│ System Boot     │ GBOY (1s)   │ All LEDs flash once      │
+│ Normal Operation│ G_BY (vary) │ Tasks running normally   │
+│ Stack Overflow  │ ___R (solid)│ Red LED solid on         │
+│ System Deadlock │ GBOY (fast) │ All LEDs fast flash     │
+│ Debug Mode      │ G__Y (alt)  │ Green/Yellow alternating │
+│ CPU Overload    │ __BY (fast) │ Blue/Yellow fast flash   │
+│ Memory Full     │ G_BR (slow) │ Memory allocation failed │
+└─────────────────┴─────────────┴──────────────────────────┘
+
+Real-Time Debug and Profiling Interface
+=======================================
+
+                    UART Debug Console (115200 baud)
+                    ┌─────────────────────────────────┐
+                    │                                 │
+    PC/Terminal     │              ATmega328P         │
+    ┌─────────────┐ │  ┌─────────────┐                │
+    │             │ │  │             │                │
+    │ Serial      ├─┼──┤ PD0 (RXD)   │                │ Debug Commands
+    │ Terminal    │ │  │             │                │
+    │ (115200)    │ │  │ PD1 (TXD)   ├────────────────┤ System Status
+    │             │ │  │             │                │
+    └─────────────┘ │  └─────────────┘                │
+                    │                                 │
+                    └─────────────────────────────────┘
+
+Debug Command Interface:
+┌────────┬─────────────────────────────────────────────┐
+│ Command│ Function                                    │
+├────────┼─────────────────────────────────────────────┤
+│ 't'    │ Print task list (ID, name, state, priority) │
+│ 's'    │ Print system statistics (CPU, memory)      │
+│ 'm'    │ Print memory usage and pool status          │
+│ 'q'    │ Print message queue status                  │
+│ 'e'    │ Print semaphore and mutex status            │
+│ 'c'    │ Print CPU profiling data per task          │
+│ 'k'    │ Print stack usage analysis                  │
+│ 'r'    │ Reset all system statistics                 │
+│ 'h'    │ Print help and command reference            │
+│ 'v'    │ Print RTOS version and build info           │
+└────────┴─────────────────────────────────────────────┘
+
+Logic Analyzer Debug Connections
+================================
+
+                    High-Speed Debug Signals
+                    ┌─────────────────────────────────┐
+                    │                                 │
+    Logic Analyzer  │              ATmega328P         │
+    ┌─────────────┐ │  ┌─────────────┐                │
+    │ Ch0         ├─┼──┤ Timer1 OUT  │                │ System Tick (1ms)
+    │ Ch1         ├─┼──┤ PD3 (DEBUG) │                │ Context Switch Event
+    │ Ch2         ├─┼──┤ PB0 (TASK1) │                │ Task 1 Execution
+    │ Ch3         ├─┼──┤ PB1 (TASK2) │                │ Task 2 Execution  
+    │ Ch4         ├─┼──┤ INT0 Entry  │                │ Interrupt Entry/Exit
+    │ Ch5         ├─┼──┤ Memory Ops  │                │ Memory Alloc/Free
+    │ Ch6         ├─┼──┤ IPC Ops     │                │ Queue/Semaphore Ops
+    │ Ch7         ├─┼──┤ Error Flag  │                │ System Error Events
+    └─────────────┘ │  └─────────────┘                │
+                    │                                 │
+                    └─────────────────────────────────┘
+
+Timing Analysis Setup:
+- Sample Rate: 100MHz (10ns resolution)
+- Trigger: Rising edge on Context Switch (Ch1)
+- Buffer Depth: 1M samples (10ms capture window)
+- Protocol Decode: Custom RTOS events
+
+User Input and Control Interface
+===============================
+
+                    Button Input with Debouncing
+                    ┌─────────────────────────────────┐
+                    │                   +5V           │
+                    │                    │            │
+    User Button     │                 ┌──┴──┐         │
+    ┌─────────────┐ │                 │10kΩ │         │ Pull-up
+    │             │ │                 └──┬──┘         │
+    │  ┌───┐      │ │                    │            │
+    │  │   │ N.O. ├─┼────────────────────┼──────────── PD2 (INT0)
+    │  └───┘      │ │                    │            │
+    │             │ │                    │            │
+    └─────────────┘ │                   GND           │
+                    │                                 │
+                    │ Debouncing: Software (20ms)     │
+                    │ Interrupt: Falling edge         │
+                    │ Priority: Medium (Button Task)  │
+                    └─────────────────────────────────┘
+
+Button Event Processing:
+1. Hardware interrupt (INT0) triggers immediately
+2. Button task woken up from blocked state
+3. Software debouncing with 20ms delay
+4. Event classification (short/long press)
+5. Message sent to system event queue
+6. Debug information printed to UART
+
+Power Supply and System Stability
+=================================
+
+                    Regulated Power Distribution
+                    ┌─────────────────────────────────┐
+                    │         +5V Input               │
+                    │           │                     │
+                    │    ┌──────┴──────┐              │
+                    │    │Input Filter │              │
+                    │    │L1: 10μH     │              │ EMI Suppression
+                    │    │C1: 470μF    │              │
+                    │    └──────┬──────┘              │
+                    │           │                     │
+                    │           │                     │
+                    │    ┌──────┴──────┐              │
+                    │    │Voltage Reg  │              │
+                    │    │(optional)   │              │ 3.3V for Sensors
+                    │    │AMS1117-3.3  │              │
+                    │    └──────┬──────┘              │
+                    │           │                     │
+                    │          3.3V                   │
+                    │           │                     │
+                    │    ┌──────┴──────┐              │
+                    │    │Decoupling   │              │
+                    │    │Network      │              │
+                    │    └─────────────┘              │
+                    └─────────────────────────────────┘
+
+System Clock and Timing References
+==================================
+
+                    Precision Clock Generation
+                    ┌─────────────────────────────────┐
+                    │                                 │
+                    │        16MHz Crystal            │
+    Crystal Circuit │    ┌─────────────────┐          │
+    ┌─────────────┐ │    │                 │          │
+    │             │ │ ┌──┤ XTAL1    XTAL2 ├──┐       │
+    │   16MHz     ├─┼─┤  │                 │  │       │
+    │  Crystal    │ │ │  │   ATmega328P    │  │       │
+    │             │ │ │  │                 │  │       │
+    └─────────────┘ │ │  └─────────────────┘  │       │
+                    │ │                       │       │
+                    │ │  ┌─22pF─┐    ┌─22pF─┐ │       │
+                    │ └──┤      ├────┤      ├─┘       │
+                    │    │      │    │      │         │
+                    │    └──┬───┘    └───┬──┘         │
+                    │       │            │            │
+                    │      GND          GND           │
+                    └─────────────────────────────────┘
+
+Timer Configuration for RTOS:
+- Timer1: System tick generation (1ms period)
+- Mode: CTC (Clear Timer on Compare)
+- Prescaler: 64 (250kHz timer clock)
+- Compare Value: 249 (1ms period)
+- Interrupt: TIMER1_COMPA_vect
+
+RTOS Memory Layout and Stack Management
+======================================
+
+                    ATmega328P Memory Organization
+    ┌─────────────────────────────────────────────────┐
+    │                                                 │
+    │ Flash Memory (32KB)                             │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Interrupt Vectors    (0x0000 - 0x0034)     │ │
+    │ │ RTOS Kernel Code     (0x0034 - 0x4000)     │ │
+    │ │ Task Functions       (Integrated)           │ │
+    │ │ Constant Data        (Embedded)             │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ SRAM Memory (2KB)                               │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Registers + I/O      (0x0000 - 0x00FF)     │ │
+    │ │ Kernel Data          (0x0100 - 0x0290)     │ │
+    │ │ Task Stacks          (0x0290 - 0x0A90)     │ │
+    │ │ Message Buffers      (0x0A90 - 0x0E90)     │ │
+    │ │ Memory Pool          (0x0E90 - 0x1090)     │ │
+    │ │ Heap Space           (0x1090 - 0x17FF)     │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ EEPROM (1KB) - Optional persistent storage     │
+    └─────────────────────────────────────────────────┘
+
+Task Stack Layout (256 bytes each):
+┌──────────────┬─────────────────────────────────────┐
+│ Stack Region │ Content                             │
+├──────────────┼─────────────────────────────────────┤
+│ High Address │ Stack Canary (0xABCD)             │
+│              │ Local Variables                     │
+│              │ Function Parameters                 │
+│              │ Return Addresses                    │
+│              │ Saved Registers (Context)           │
+│              │ Program Counter                     │
+│ Low Address  │ Stack Pointer Location             │
+└──────────────┴─────────────────────────────────────┘
+
+Context Switch Stack Frame:
+- Program Counter (2 bytes)
+- Status Register SREG (1 byte)
+- General Registers R0-R31 (32 bytes)
+- Total Context Size: 35 bytes per task
+
+Task Control Block (TCB) Structure
+==================================
+
+                    Task Management Data Structure
+    ┌─────────────────────────────────────────────────┐
+    │ Task Control Block (56 bytes each)             │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Task ID          (1 byte)                   │ │
+    │ │ Task State       (1 byte)                   │ │
+    │ │ Priority Level   (1 byte)                   │ │
+    │ │ Stack Pointer    (2 bytes)                  │ │
+    │ │ Stack Base       (2 bytes)                  │ │
+    │ │ Stack Size       (2 bytes)                  │ │
+    │ │ CPU Time         (4 bytes)                  │ │
+    │ │ Wake Time        (4 bytes)                  │ │
+    │ │ Last Runtime     (4 bytes)                  │ │
+    │ │ Function Pointer (2 bytes)                  │ │
+    │ │ Parameter        (2 bytes)                  │ │
+    │ │ Next Task Ptr    (2 bytes)                  │ │
+    │ │ Stack Canary     (2 bytes)                  │ │
+    │ │ Task Name        (16 bytes)                 │ │
+    │ │ Reserved         (13 bytes)                 │ │
+    │ └─────────────────────────────────────────────┘ │
+    └─────────────────────────────────────────────────┘
+
+Task State Transitions:
+┌─────────────┬─────────────┬─────────────────────────┐
+│ From State  │ To State    │ Trigger Event           │
+├─────────────┼─────────────┼─────────────────────────┤
+│ READY       │ RUNNING     │ Scheduler selection     │
+│ RUNNING     │ READY       │ Preemption/yield        │
+│ RUNNING     │ BLOCKED     │ Wait for resource       │
+│ BLOCKED     │ READY       │ Resource available      │
+│ READY       │ SUSPENDED   │ Task suspend call       │
+│ SUSPENDED   │ READY       │ Task resume call        │
+│ Any State   │ TERMINATED  │ Task delete call        │
+└─────────────┴─────────────┴─────────────────────────┘
+
+Inter-Process Communication Architecture
+=======================================
+
+                    Message Queue Implementation
+    ┌─────────────────────────────────────────────────┐
+    │ Message Queue Structure (64 bytes header)      │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Buffer Pointer   (2 bytes)                  │ │
+    │ │ Queue Size       (2 bytes)                  │ │
+    │ │ Head Index       (2 bytes)                  │ │
+    │ │ Tail Index       (2 bytes)                  │ │
+    │ │ Message Count    (2 bytes)                  │ │
+    │ │ Message Size     (2 bytes)                  │ │
+    │ │ Semaphore ID     (1 byte)                   │ │
+    │ │ Reserved         (49 bytes)                 │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ Ring Buffer Data (256 bytes each queue)        │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ [MSG][MSG][MSG]...[MSG] (circular)          │ │
+    │ └─────────────────────────────────────────────┘ │
+    └─────────────────────────────────────────────────┘
+
+Semaphore System Implementation:
+┌─────────────────┬─────────────────────────────────────┐
+│ Semaphore Type  │ Configuration                       │
+├─────────────────┼─────────────────────────────────────┤
+│ Binary          │ Count: 0 or 1 (mutex-like)        │
+│ Counting        │ Count: 0 to 255 (resource pool)   │
+│ Recursive       │ Count: with owner tracking        │
+└─────────────────┴─────────────────────────────────────┘
+
+Memory Pool Management System
+=============================
+
+                    Dynamic Memory Allocation
+    ┌─────────────────────────────────────────────────┐
+    │ Memory Pool Structure (512 bytes total)        │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Pool Start       (2 bytes)                  │ │
+    │ │ Block Size       (2 bytes) = 32 bytes      │ │
+    │ │ Number of Blocks (2 bytes) = 16 blocks     │ │
+    │ │ Free Blocks      (2 bytes)                  │ │
+    │ │ Free Bitmap      (2 bytes pointer)         │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ Memory Blocks (16 x 32 bytes = 512 bytes)      │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ [BLK0][BLK1][BLK2]...[BLK15]               │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ Free Block Bitmap (2 bytes = 16 bits)          │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ [15][14][13]...[2][1][0] (1=free, 0=used) │ │
+    │ └─────────────────────────────────────────────┘ │
+    └─────────────────────────────────────────────────┘
+
+Block Allocation Algorithm:
+1. Search bitmap for first free block (bit = 1)
+2. Mark block as used (bit = 0)
+3. Return pointer to block start address
+4. Update free block counter
+
+Block Deallocation Algorithm:
+1. Calculate block index from pointer
+2. Mark block as free (bit = 1)
+3. Increment free block counter
+4. Optional: Coalesce adjacent free blocks
+
+System Performance Monitoring
+=============================
+
+                    Real-Time Profiling System
+    ┌─────────────────────────────────────────────────┐
+    │ System Statistics Structure                     │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ System Ticks     (4 bytes) - Uptime        │ │
+    │ │ Context Switches (4 bytes) - Total count   │ │
+    │ │ Total CPU Time   (4 bytes) - All tasks     │ │
+    │ │ Peak Stack Usage (16 bytes) - Per task     │ │
+    │ │ CPU Usage %      (1 byte) - Current load   │ │
+    │ │ Memory Usage %   (1 byte) - Pool usage     │ │
+    │ │ Reserved         (34 bytes) - Future use   │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ Per-Task Profiling Data                         │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Task 0: CPU time, stack usage, run count   │ │
+    │ │ Task 1: CPU time, stack usage, run count   │ │
+    │ │ ...                                         │ │
+    │ │ Task 7: CPU time, stack usage, run count   │ │
+    │ └─────────────────────────────────────────────┘ │
+    └─────────────────────────────────────────────────┘
+
+Performance Metrics Calculation:
+- CPU Usage = (Total_Active_Time / Total_System_Time) * 100
+- Task CPU% = (Task_CPU_Time / Total_CPU_Time) * 100
+- Memory Usage = (Used_Blocks / Total_Blocks) * 100
+- Stack Usage = (Used_Stack / Total_Stack) * 100
+
+Error Detection and Recovery System
+===================================
+
+                    Fault Tolerance Mechanisms
+    ┌─────────────────────────────────────────────────┐
+    │ Stack Overflow Detection                        │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Method 1: Stack Canary                      │ │
+    │ │ - Place magic value at stack bottom         │ │
+    │ │ - Check periodically for corruption         │ │
+    │ │ - Value: 0xABCD (per task)                  │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Method 2: High Water Mark                   │ │
+    │ │ - Track maximum stack usage per task        │ │
+    │ │ - Alert when usage > 80% of allocation     │ │
+    │ │ - Display in debug statistics              │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ Deadlock Detection (Future Enhancement)         │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Resource Allocation Graph                   │ │
+    │ │ - Track task-resource dependencies         │ │
+    │ │ - Detect circular wait conditions          │ │
+    │ │ - Automatic deadlock recovery              │ │
+    │ └─────────────────────────────────────────────┘ │
+    └─────────────────────────────────────────────────┘
+
+Watchdog Task Monitoring:
+1. Each task must provide periodic heartbeat
+2. Watchdog task monitors all heartbeats
+3. Timeout detection triggers recovery action
+4. Recovery options: task restart, system reset
+
+Testing and Validation Hardware
+===============================
+
+                    Development and Debug Setup
+    ┌─────────────────────────────────────────────────┐
+    │ Required Test Equipment                         │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Logic Analyzer (8+ channels, 100MHz+)      │ │
+    │ │ - Context switch timing analysis           │ │
+    │ │ - Task execution profiling                 │ │
+    │ │ - IPC operation verification               │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Oscilloscope (4 channels, 100MHz)          │ │
+    │ │ - Signal integrity verification            │ │
+    │ │ - Timing relationship analysis             │ │
+    │ │ - Power consumption monitoring             │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Serial Terminal (115200 baud)              │ │
+    │ │ - Real-time system monitoring              │ │
+    │ │ - Debug command interface                  │ │
+    │ │ - Performance data logging                 │ │
+    │ └─────────────────────────────────────────────┘ │
+    └─────────────────────────────────────────────────┘
+
+Test Points and Measurement Setup:
+┌────────────┬─────────────┬──────────────────────────┐
+│ Test Point │ Signal      │ Measurement Purpose      │
+├────────────┼─────────────┼──────────────────────────┤
+│ TP1        │ System Tick │ 1ms timer verification   │
+│ TP2        │ Debug Pin   │ Context switch timing    │
+│ TP3        │ Task 1 LED  │ Task execution periods   │
+│ TP4        │ Task 2 LED  │ Priority enforcement     │
+│ TP5        │ Button INT  │ Interrupt response time  │
+│ TP6        │ UART TX     │ Debug output monitoring  │
+│ TP7        │ Error LED   │ System fault detection   │
+│ TP8        │ VCC Rail    │ Power consumption        │
+└────────────┴─────────────┴──────────────────────────┘
+
+Power Management and Optimization
+=================================
+
+                    Power-Aware Task Scheduling
+    ┌─────────────────────────────────────────────────┐
+    │ Power Management Features                       │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Idle Task Power Optimization                │ │
+    │ │ - Enter sleep mode when all tasks blocked  │ │
+    │ │ - Use Timer1 interrupt to wake up          │ │
+    │ │ - Reduce clock frequency during idle       │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Peripheral Power Management                 │ │
+    │ │ - Disable unused peripherals               │ │
+    │ │ - Dynamic clock gating                     │ │
+    │ │ - LED duty cycle optimization              │ │
+    │ └─────────────────────────────────────────────┘ │
+    │                                                 │
+    │ ┌─────────────────────────────────────────────┐ │
+    │ │ Voltage Scaling (Future Enhancement)       │ │
+    │ │ - Reduce core voltage during low load     │ │
+    │ │ - Dynamic frequency scaling               │ │
+    │ │ - Temperature-compensated operation       │ │
+    │ └─────────────────────────────────────────────┘ │
+    └─────────────────────────────────────────────────┘
+
+Power Consumption Profile:
+- Active Mode: ~20mA (CPU running at 16MHz)
+- Idle Mode: ~6mA (CPU idle, peripherals active)
+- Power-down Mode: ~1μA (all peripherals stopped)
+- Wake-up Time: <1ms from power-down
+
+Environmental Operating Conditions
+==================================
+
+System Specifications:
+┌─────────────────┬─────────────┬─────────────────┐
+│ Parameter       │ Min         │ Max             │
+├─────────────────┼─────────────┼─────────────────┤
+│ Supply Voltage  │ 4.5V        │ 5.5V            │
+│ Operating Temp  │ -10°C       │ +70°C           │
+│ Storage Temp    │ -40°C       │ +125°C          │
+│ Relative Humid  │ 10%         │ 95% (non-cond.) │
+│ Clock Accuracy  │ ±50ppm      │ @ 25°C          │
+│ UART Baud Error │ <2%         │ @ all temps     │
+└─────────────────┴─────────────┴─────────────────┘
+
+EMI/EMC Considerations:
+- Digital switching noise: <50mV on power rails
+- Clock signal containment: Ground plane isolation
+- I/O signal integrity: Proper termination and slew rate
+- RF emissions: <Class B limits (FCC Part 15)
+
+Assembly and Manufacturing Notes
+===============================
+
+PCB Layout Guidelines:
+1. Separate digital and analog ground planes
+2. Keep crystal traces short and shielded
+3. Use via stitching for ground plane connectivity
+4. Place decoupling caps within 5mm of power pins
+5. Route high-speed signals on inner layers
+6. Maintain 50Ω impedance for critical signals
+
+Component Placement Priority:
+1. ATmega328P microcontroller (central position)
+2. 16MHz crystal (close to MCU, <1cm)
+3. Power supply decoupling capacitors
+4. Debug connectors and test points
+5. User interface elements (LEDs, buttons)
+6. External connectors and interfaces
+
+Quality Control Testing:
+1. In-circuit test (ICT) for connectivity
+2. Functional test with automated test vectors
+3. Boundary scan testing (if supported)
+4. Real-time performance validation
+5. Long-term stability testing (48+ hours)
+
+Documentation and Support
+=========================
+
+Technical Documentation Package:
+- Complete schematic diagrams
+- PCB layout and assembly drawings
+- Bill of materials with part specifications
+- Software architecture documentation
+- API reference and programming guide
+- Performance benchmarking results
+- Test procedures and validation reports
+
+Software Tools and Utilities:
+- RTOS configuration utility
+- Performance profiling tools
+- Memory usage analyzer
+- Task timing analyzer
+- Debug console interface
+- Automated test suites
+
+Training and Support Materials:
+- Quick start guide
+- Tutorial examples
+- Troubleshooting guide
+- FAQ and known issues
+- Application notes
+- Video demonstrations
+
+Revision History and Change Log
+===============================
+
+Hardware Revision: v1.0
+Software Version: v1.0
+Documentation Version: v1.0
+
+Key Design Features:
+- Professional RTOS implementation
+- Comprehensive debugging capabilities  
+- Real-time performance monitoring
+- Robust error detection and recovery
+- Power-optimized task scheduling
+- Scalable architecture for expansion
+
+Future Enhancement Roadmap:
+- SMP (multi-core) support preparation
+- Advanced power management features
+- Wireless debugging interface
+- Machine learning integration
+- IoT connectivity options
+- Safety certification compliance
