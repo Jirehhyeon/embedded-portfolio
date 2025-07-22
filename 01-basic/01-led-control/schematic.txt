@@ -1,0 +1,31 @@
+LED Control Circuit Schematic
+============================
+
+Arduino Uno/Nano (ATmega328P)
+                                    
+         +5V   GND                  
+          │     │                   
+     ┌────┴─────┴────┐              
+     │               │              
+     │  ATmega328P   │              
+     │               │              
+     │          PB5  ├──────[220Ω]──────┤▶├───── GND
+     │      (Pin 13) │                  LED
+     │               │              (Red/Green/Blue)
+     │               │              
+     └───────────────┘              
+
+Components:
+- R1: 220Ω resistor (Red-Red-Brown-Gold)
+- LED: Standard 5mm LED (any color)
+- Jumper wires
+
+Connections:
+1. Connect LED anode (longer leg) to resistor
+2. Connect resistor other end to Arduino Pin 13
+3. Connect LED cathode (shorter leg) to GND
+
+Notes:
+- The 220Ω resistor limits current to ~14mA
+- LED forward voltage: ~2V (red), ~3.3V (blue/white)
+- Maximum current per I/O pin: 40mA (20mA recommended)
